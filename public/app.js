@@ -3,6 +3,8 @@
 // ==================== ESTADO ====================
 const STORAGE_ROLE = 'svi.role';
 const STORAGE_STAFF_TOKEN = 'svi.staffToken';
+const STORAGE_TICKETS = 'svi.tickets';  // cópia dos ingressos para mostrar sem internet
+const STORAGE_CONFIG = 'svi.config';
 const SCAN_COOLDOWN_MS = 4000;
 const RESULT_DISPLAY_MS = 2500;
 
@@ -11,12 +13,16 @@ const state = {
     role: null,          // 'VISITANTE' | 'SEGURANCA'
     staffToken: null,
     session: null,       // sessão do visitante no Supabase Auth
+    offline: false,      // sem internet e sem sessão válida: mostra os ingressos salvos no aparelho
     signUpMode: false,
     scanner: null,
     scannerStarting: false,
     lastScan: { code: null, at: 0 },
     validating: false,
     history: [],
+    wakeLock: null,
+    installPrompt: null,
+    logouts: 0,          // invalida conferências de sessão que terminem depois de um "Sair"
 };
 
 // Endereço da API: vazio = mesmo servidor (Node); definido em config.js para a API no Supabase
@@ -26,6 +32,9 @@ const API_BASE = (window.SVI_API_BASE || '').replace(/\/$/, '');
 const supabaseClient = window.supabase && window.SVI_SUPABASE_URL
     ? window.supabase.createClient(window.SVI_SUPABASE_URL, window.SVI_SUPABASE_KEY)
     : null;
+
+// Rodando dentro do app Android (Capacitor), que injeta window.Capacitor
+const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
 
 const $ = (id) => document.getElementById(id);
 
@@ -129,31 +138,49 @@ async function setRole(role, initialTab) {
 
     const badge = $('user-role-badge');
     badge.textContent = role === 'VISITANTE'
-        ? `Visitante: ${state.session?.user?.email || ''}`
+        ? `Visitante: ${state.session?.user?.email || readTicketsCache()?.email || ''}`
         : 'Perfil: Segurança (Portaria)';
     badge.classList.toggle('staff', role === 'SEGURANCA');
 
     document.querySelectorAll('.nav-btn').forEach((btn) => {
         btn.classList.toggle('hidden', !ROLE_TABS[role].includes(btn.dataset.tab));
     });
+    // No celular as abas ficam no rodapé; com uma aba só, a barra não aparece
+    document.body.classList.toggle('multi-tab', ROLE_TABS[role].length > 1);
 
     await switchTab(initialTab || ROLE_TABS[role][0]);
 }
 
 async function logout() {
     await stopScanner();
-    if (state.session && supabaseClient) await supabaseClient.auth.signOut().catch(() => {});
+    if (supabaseClient && (state.session || state.offline)) {
+        // Sem internet o signOut falha e mantém a sessão salva; apaga do aparelho mesmo assim.
+        // No modo offline nem tenta: a renovação do token vencido deixaria o botão esperando.
+        const { error } = state.session
+            ? await supabaseClient.auth.signOut().catch((err) => ({ error: err }))
+            : { error: true };
+        if (error) storageSet(localStorage, supabaseClient.auth.storageKey, null);
+    }
+    state.logouts++;
     state.session = null;
+    state.offline = false;
     state.role = null;
     state.staffToken = null;
     storageSet(sessionStorage, STORAGE_ROLE, null);
     storageSet(sessionStorage, STORAGE_STAFF_TOKEN, null);
+    storageSet(localStorage, STORAGE_TICKETS, null);
 
     document.querySelectorAll('.nav-btn').forEach((btn) => btn.classList.add('hidden'));
     document.querySelectorAll('.tab-content').forEach((tab) => tab.classList.remove('active'));
+    document.body.classList.remove('multi-tab');
 
     $('tickets-container').replaceChildren();
     updateTicketCount(0);
+    resetLoginForms();
+    $('login-screen').classList.remove('hidden');
+}
+
+function resetLoginForms() {
     $('login-visitante-pass').value = '';
     $('login-visitante-error').classList.add('hidden');
     $('visitante-form').classList.add('hidden');
@@ -162,7 +189,6 @@ async function logout() {
     $('login-seguranca-error').classList.add('hidden');
     $('seguranca-form').classList.add('hidden');
     $('btn-login-seguranca-trigger').classList.remove('hidden');
-    $('login-screen').classList.remove('hidden');
 }
 
 async function switchTab(tabName) {
@@ -287,6 +313,10 @@ function changeQuantity(delta) {
 
 async function startCheckout(event) {
     event.preventDefault();
+    if (!state.session) {
+        toast('Conecte-se à internet para comprar ingressos.', 'warning');
+        return;
+    }
     const nameInput = $('nome-titular');
     const holderName = nameInput.value.trim().replace(/\s+/g, ' ');
 
@@ -442,7 +472,7 @@ function renderTicketCard(ticket) {
                 el('span', { class: `badge ${used ? 'badge-used' : 'badge-valid'}` },
                     used ? `✗ Utilizado ${formatDate(ticket.usedAt)}` : '✓ Válido'),
                 used || !window.QRCode ? null : el('button', {
-                    class: 'btn btn-secondary btn-sm',
+                    class: 'btn btn-secondary btn-sm web-only',
                     type: 'button',
                     onclick: () => downloadQr(qrBox, ticket.code),
                 }, '⬇️ Baixar QR')
@@ -475,11 +505,73 @@ function renderOrder(order) {
     );
 }
 
+// ==================== INGRESSOS SALVOS NO APARELHO ====================
+// Na portaria do evento a internet costuma falhar; a última lista carregada fica no aparelho
+// para o QR Code abrir mesmo offline. É só uma cópia: quem decide a entrada é sempre o servidor.
+function saveTicketsCache(orders) {
+    storageSet(localStorage, STORAGE_TICKETS, {
+        userId: state.session.user.id,
+        email: state.session.user.email,
+        savedAt: Date.now(),
+        orders: orders.filter((o) => o.status === 'PAID'),
+    });
+}
+
+function readTicketsCache(userId) {
+    const cache = storageGet(localStorage, STORAGE_TICKETS, null);
+    if (!cache || !Array.isArray(cache.orders)) return null;
+    return !userId || cache.userId === userId ? cache : null;
+}
+
+/**
+ * Confere a sessão salva do visitante. Sem internet, o supabase-js insiste por até 30 s em renovar
+ * um token vencido; enquanto isso o app segue no modo offline com os ingressos salvos.
+ */
+let sessionCheck = null;
+function checkSession() {
+    const logouts = state.logouts;
+    sessionCheck ||= supabaseClient.auth.getSession().then(async ({ data, error }) => {
+        if (logouts !== state.logouts) {
+            // Saiu da conta enquanto a renovação estava pendente: não deixa a sessão voltar
+            storageSet(localStorage, supabaseClient.auth.storageKey, null);
+            return;
+        }
+        state.session = data.session;
+        if (data.session) {
+            if (!state.offline) return;
+            state.offline = false;
+            if ($('meus-ingressos').classList.contains('active')) renderMyTickets();
+        } else if (error?.name === 'AuthRetryableFetchError') {
+            state.offline = Boolean(readTicketsCache());
+        } else if (state.offline) {
+            await sessionExpired(); // Sessão encerrada no servidor
+        }
+    }).finally(() => { sessionCheck = null; });
+    return sessionCheck;
+}
+
+function showOrders(orders, savedAt = null) {
+    const notice = savedAt && el('div', { class: 'offline-notice' },
+        el('strong', {}, '📡 Sem internet. '),
+        `Mostrando os ingressos salvos neste aparelho em ${new Date(savedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. `,
+        'O QR Code vale normalmente na portaria.'
+    );
+    const content = orders.length ? orders.map(renderOrder) : [renderEmptyState()];
+    $('tickets-container').replaceChildren(...[notice, ...content].filter(Boolean));
+    updateTicketCount(orders.reduce((sum, o) => sum + o.tickets.filter((t) => t.status === 'VALID').length, 0));
+}
+
 let renderSequence = 0;
 async function renderMyTickets() {
     const container = $('tickets-container');
     const sequence = ++renderSequence;
-    if (!state.session) return;
+    if (!state.session) {
+        // Modo offline: mostra a cópia salva e tenta renovar a sessão em segundo plano
+        const cache = state.offline && readTicketsCache();
+        if (cache) showOrders(cache.orders, cache.savedAt);
+        if (state.offline && navigator.onLine && supabaseClient) checkSession();
+        return;
+    }
 
     if (!container.childElementCount) {
         container.replaceChildren(el('div', { class: 'empty-state' }, el('div', { class: 'spinner lg' })));
@@ -491,6 +583,8 @@ async function renderMyTickets() {
     } catch (err) {
         if (sequence !== renderSequence) return;
         if (err.status === 401) return sessionExpired();
+        const cache = err.status === 0 && readTicketsCache(state.session.user.id);
+        if (cache) return showOrders(cache.orders, cache.savedAt);
         container.replaceChildren(el('div', { class: 'empty-state' },
             el('div', { class: 'empty-state-icon' }, '📡'),
             el('div', { class: 'empty-state-title' }, 'Sem conexão'),
@@ -501,14 +595,8 @@ async function renderMyTickets() {
     }
     if (sequence !== renderSequence) return; // Outra renderização mais recente já começou
 
-    if (orders.length === 0) {
-        container.replaceChildren(renderEmptyState());
-        updateTicketCount(0);
-        return;
-    }
-
-    container.replaceChildren(...orders.map(renderOrder));
-    updateTicketCount(orders.reduce((sum, o) => sum + o.tickets.filter((t) => t.status === 'VALID').length, 0));
+    saveTicketsCache(orders);
+    showOrders(orders);
 }
 
 async function sessionExpired() {
@@ -552,6 +640,7 @@ async function startScanner() {
         return;
     }
     state.scannerStarting = true;
+    keepScreenOn(true);
 
     try {
         if (!state.scanner) state.scanner = new Html5Qrcode('qr-reader');
@@ -574,6 +663,7 @@ async function startScanner() {
 }
 
 async function stopScanner() {
+    keepScreenOn(false);
     if (state.scanner?.isScanning) {
         try {
             await state.scanner.stop();
@@ -582,6 +672,29 @@ async function stopScanner() {
             console.error('Erro ao parar a câmera:', err);
         }
     }
+}
+
+/** Impede o celular da portaria de apagar a tela entre uma leitura e outra. */
+async function keepScreenOn(on) {
+    try {
+        // A WebView do app Android não tem Wake Lock; lá o plugin KeepAwake segura a tela
+        const KeepAwake = window.Capacitor?.Plugins?.KeepAwake;
+        if (KeepAwake) {
+            await (on ? KeepAwake.keepAwake() : KeepAwake.allowSleep());
+        } else if (on && navigator.wakeLock && (!state.wakeLock || state.wakeLock.released)) {
+            state.wakeLock = await navigator.wakeLock.request('screen');
+        } else if (!on && state.wakeLock) {
+            const lock = state.wakeLock;
+            state.wakeLock = null;
+            await lock.release();
+        }
+    } catch {
+        // Recurso indisponível (ex.: economia de bateria); a portaria funciona igual
+    }
+}
+
+function portariaActive() {
+    return state.role === 'SEGURANCA' && $('portaria').classList.contains('active');
 }
 
 function onScan(text) {
@@ -699,8 +812,67 @@ async function pasteCode() {
         const text = await navigator.clipboard.readText();
         if (text) $('manual-code').value = text.trim().toUpperCase();
     } catch {
-        toast('Não foi possível acessar a área de transferência. Cole com Ctrl+V.', 'warning');
+        toast('Não foi possível colar automaticamente. Toque e segure no campo (ou use Ctrl+V) para colar.', 'warning');
     }
+}
+
+// ==================== APP NO CELULAR ====================
+function setupInstall() {
+    if (isNativeApp) return;
+    // Guarda os arquivos do site para o app abrir sem internet
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Service worker não registrado:', err));
+    }
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if (standalone) return;
+
+    const showInstall = (visible) => {
+        $('install-banner').classList.toggle('hidden', !visible);
+        document.querySelectorAll('[data-install]').forEach((btn) => btn.classList.toggle('hidden', !visible));
+    };
+    window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        state.installPrompt = event;
+        showInstall(true);
+    });
+    window.addEventListener('appinstalled', () => {
+        state.installPrompt = null;
+        showInstall(false);
+        toast('App instalado! Abra o SVI pela tela inicial.', 'success', 6000);
+    });
+    document.querySelectorAll('[data-install]').forEach((btn) => btn.addEventListener('click', async () => {
+        if (!state.installPrompt) return;
+        state.installPrompt.prompt();
+        await state.installPrompt.userChoice.catch(() => {});
+        state.installPrompt = null;
+        showInstall(false);
+    }));
+
+    // iPhone e iPad não oferecem o botão de instalar: explica o caminho pelo Safari
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (ios) {
+        $('install-hint').textContent = 'No Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+        $('install-banner').classList.remove('hidden');
+    }
+}
+
+function setupNativeApp() {
+    if (!isNativeApp) return;
+    document.documentElement.classList.add('native-app');
+
+    // Botão "voltar" do Android: fecha o que estiver aberto, volta para a primeira aba e só então minimiza
+    const App = window.Capacitor.Plugins?.App;
+    App?.addListener('backButton', () => {
+        if (!$('result-overlay').classList.contains('hidden')) return hideResult();
+        if ($('checkout-modal').classList.contains('active')) return closeCheckoutModal();
+        if (state.role) {
+            const firstTab = ROLE_TABS[state.role][0];
+            if (!$(firstTab).classList.contains('active')) return switchTab(firstTab);
+        } else if (!$('visitante-form').classList.contains('hidden') || !$('seguranca-form').classList.contains('hidden')) {
+            return resetLoginForms();
+        }
+        App.minimizeApp();
+    });
 }
 
 // ==================== INICIALIZAÇÃO ====================
@@ -748,37 +920,76 @@ function bindEvents() {
         if (e.persisted) setButtonLoading($('btn-pagamento'), false);
     });
     window.addEventListener('beforeunload', stopScanner);
+
+    // Celular em segundo plano: libera a câmera e retoma a leitura ao voltar
+    document.addEventListener('visibilitychange', () => {
+        if (!portariaActive()) return;
+        if (document.visibilityState === 'hidden') stopScanner();
+        else startScanner();
+    });
+    window.addEventListener('online', () => {
+        if (state.role === 'VISITANTE' && $('meus-ingressos').classList.contains('active')) renderMyTickets();
+    });
 }
 
 async function init() {
     bindEvents();
+    setupInstall();
+    setupNativeApp();
 
     // O supabase-js renova o token sozinho; mantemos a cópia usada nas chamadas da API
     if (supabaseClient) {
-        const { data } = await supabaseClient.auth.getSession();
-        state.session = data.session;
         supabaseClient.auth.onAuthStateChange((_event, session) => { state.session = session; });
+        const check = checkSession();
+        // Com ingressos salvos, não deixa a tela parada esperando a internet voltar
+        const settled = readTicketsCache()
+            ? await Promise.race([check.then(() => true), new Promise((resolve) => setTimeout(resolve, 3000, false))])
+            : await check.then(() => true);
+        if (!settled) state.offline = true;
     }
 
-    try {
-        state.config = await api('/api/config');
-    } catch {
-        toast('Não foi possível carregar as configurações do evento.', 'error');
+    // Configurações do evento: usa a última cópia na hora e atualiza quando a API responder
+    const applyConfig = () => {
+        $('event-name').textContent = state.config.eventName;
+        $('quantidade').max = state.config.maxTicketsPerOrder;
+        updateTotal();
+    };
+    const savedConfig = storageGet(localStorage, STORAGE_CONFIG, null);
+    const loadConfig = api('/api/config').then((config) => {
+        state.config = config;
+        storageSet(localStorage, STORAGE_CONFIG, config);
+        applyConfig();
+    });
+    if (savedConfig) {
+        state.config = savedConfig;
+        loadConfig.catch(() => {});
+    } else {
+        await loadConfig.catch(() => toast('Não foi possível carregar as configurações do evento.', 'error'));
     }
-    $('event-name').textContent = state.config.eventName;
-    $('quantidade').max = state.config.maxTicketsPerOrder;
-    updateTotal();
+    applyConfig();
 
     if (await handleCheckoutReturn()) return;
+
+    // Atalhos do ícone do app (manifest.webmanifest): ?tab=meus-ingressos ou ?tab=portaria
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    if (requestedTab) history.replaceState(null, '', window.location.pathname);
 
     // Restaura a sessão da aba (recarregar a página não exige novo login)
     const savedRole = storageGet(sessionStorage, STORAGE_ROLE, null);
     const savedToken = storageGet(sessionStorage, STORAGE_STAFF_TOKEN, null);
-    if (state.session && savedRole !== 'SEGURANCA') {
-        await setRole('VISITANTE');
+    if (state.session && savedRole !== 'SEGURANCA' && requestedTab !== 'portaria') {
+        // Sem internet, abre direto nos ingressos
+        const showTickets = requestedTab === 'meus-ingressos' || !navigator.onLine;
+        await setRole('VISITANTE', showTickets ? 'meus-ingressos' : undefined);
     } else if (savedRole === 'SEGURANCA' && savedToken) {
         state.staffToken = savedToken;
         await setRole('SEGURANCA');
+    } else if (state.offline) {
+        await setRole('VISITANTE', 'meus-ingressos');
+    } else if (requestedTab === 'portaria') {
+        $('btn-login-seguranca-trigger').click();
+    } else if (requestedTab === 'meus-ingressos') {
+        $('btn-login-visitante').click();
     }
 }
 

@@ -2,19 +2,31 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0b0f17">
     <title>SVI - Sistema de Validação de Ingressos</title>
+    <meta name="description" content="Compre ingressos, guarde o QR Code no celular e valide a entrada na portaria.">
+
+    <!-- App instalável (Android, iPhone e computador) -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SVI">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 
-    <!-- integrity: o navegador só executa o arquivo se ele for exatamente o esperado -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js" integrity="sha384-LxBm2/oFd/wfoABz4wsZ4FnGMQVAy5QI1bhf+kHA4YKi0aFe1BJTWosfTWmlMNNY" crossorigin="anonymous" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous"></script>
+    <!-- Bibliotecas servidas pelo próprio site para o app abrir sem internet (qrcodejs 1.0.0,
+         html5-qrcode 2.3.4 e supabase-js 2.49.4, idênticas às da CDN; veja "App para celular" no README) -->
+    <script src="vendor/qrcode.min.js" defer></script>
+    <script src="vendor/html5-qrcode.min.js" defer></script>
+    <script src="vendor/supabase.js"></script>
     <script src="config.js"></script>
     <script src="app.js" defer></script>
 </head>
@@ -28,6 +40,15 @@
             <p class="muted" style="margin-top: 10px; font-size: 15px;">
                 Selecione seu perfil para acessar o sistema
             </p>
+
+            <div id="install-banner" class="install-banner hidden">
+                <span class="install-icon" aria-hidden="true">📲</span>
+                <div class="grow">
+                    <strong>Instale o app do SVI</strong>
+                    <span id="install-hint">Abre direto da tela inicial e mostra seus ingressos mesmo sem internet.</span>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm hidden" data-install>Instalar</button>
+            </div>
 
             <div class="role-grid">
                 <div class="role-card">
@@ -104,17 +125,26 @@
                     <div class="brand-subtitle" id="event-name">Sistema de Validação de Ingressos</div>
                     <div class="badge-role" id="user-role-badge">Perfil: Não selecionado</div>
                 </div>
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-logout">
-                    🚪 Sair
-                </button>
+                <div class="header-actions">
+                    <button type="button" class="btn btn-secondary btn-sm hidden" data-install>📲 Instalar app</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-logout">
+                        🚪 Sair
+                    </button>
+                </div>
             </div>
 
+            <!-- No celular vira a barra de abas no rodapé -->
             <nav class="nav-tabs">
-                <button class="nav-btn hidden" data-tab="comprar">🛒 Comprar</button>
-                <button class="nav-btn hidden" data-tab="meus-ingressos">
-                    🎟️ Meus Ingressos <span class="nav-count hidden" id="tickets-count"></span>
+                <button class="nav-btn hidden" data-tab="comprar">
+                    <span class="nav-icon" aria-hidden="true">🛒</span><span>Comprar</span>
                 </button>
-                <button class="nav-btn hidden" data-tab="portaria">📷 Portaria (Scanner)</button>
+                <button class="nav-btn hidden" data-tab="meus-ingressos">
+                    <span class="nav-icon" aria-hidden="true">🎟️</span><span>Meus Ingressos</span>
+                    <span class="nav-count hidden" id="tickets-count"></span>
+                </button>
+                <button class="nav-btn hidden" data-tab="portaria">
+                    <span class="nav-icon" aria-hidden="true">📷</span><span>Portaria (Scanner)</span>
+                </button>
             </nav>
         </div>
     </header>
@@ -179,7 +209,7 @@
             <div class="section-header">
                 <h2>Meus Ingressos</h2>
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-print">🖨️ Imprimir</button>
+                    <button type="button" class="btn btn-secondary btn-sm web-only" id="btn-print">🖨️ Imprimir</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh">↻ Atualizar</button>
                 </div>
             </div>

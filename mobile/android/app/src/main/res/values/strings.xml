@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SVI Ingressos</string>
+    <string name="title_activity_main">SVI Ingressos</string>
+    <string name="package_name">com.ghosttech.svi</string>
+    <string name="custom_url_scheme">com.ghosttech.svi</string>
+</resources>

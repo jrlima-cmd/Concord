@@ -1,0 +1,19 @@
+{
+  "appId": "com.ghosttech.svi",
+  "appName": "SVI Ingressos",
+  "webDir": "../public",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "svi-ingressos.vercel.app",
+    "allowNavigation": ["checkout.stripe.com", "*.stripe.com"]
+  },
+  "android": {
+    "backgroundColor": "#0b0f17"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}

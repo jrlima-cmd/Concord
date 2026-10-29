@@ -1,0 +1,86 @@
+name: App Android
+
+# Gera o app Android do SVI a partir do site em public/.
+# O APK de teste fica em "Artifacts" na página de cada execução, pronto para instalar no celular.
+on:
+  push:
+    paths:
+      - 'public/**'
+      - 'mobile/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'public/**'
+      - 'mobile/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Gerar APK
+    runs-on: ubuntu-latest
+    env:
+      # Segredos não podem ir direto no "if"; a versão de loja só sai quando a chave está cadastrada
+      TEM_CHAVE_DE_LOJA: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Copiar o site para o projeto Android
+        run: npx cap sync android
+
+      - name: Compilar APK de teste
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: svi-android-teste
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # Versão para a Google Play: cadastre ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+      # ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD em Settings > Secrets and variables > Actions
+      - name: Compilar versão de loja (AAB e APK assinados)
+        if: env.TEM_CHAVE_DE_LOJA == 'true'
+        working-directory: mobile/android
+        env:
+          SVI_KEYSTORE_FILE: ${{ runner.temp }}/svi-release.jks
+          SVI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SVI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SVI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$SVI_KEYSTORE_FILE"
+          ./gradlew bundleRelease assembleRelease
+          rm -f "$SVI_KEYSTORE_FILE"
+
+      - uses: actions/upload-artifact@v4
+        if: env.TEM_CHAVE_DE_LOJA == 'true'
+        with:
+          name: svi-android-loja
+          path: |
+            mobile/android/app/build/outputs/bundle/release/app-release.aab
+            mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
