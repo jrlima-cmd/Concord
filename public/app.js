@@ -185,6 +185,8 @@ const AUTH_ERRORS = {
     'Invalid login credentials': 'E-mail ou senha incorretos.',
     'Email not confirmed': 'Confirme seu e-mail pelo link que enviamos antes de entrar.',
     'User already registered': 'Este e-mail já tem conta. Clique em "Já tenho conta" e entre.',
+    'Failed to fetch': 'Sem conexão com o servidor. Verifique sua internet.',
+    'Password should be at least 8 characters.': 'A senha precisa ter pelo menos 8 caracteres.',
 };
 
 function setSignUpMode(signUp) {
@@ -192,6 +194,7 @@ function setSignUpMode(signUp) {
     $('btn-login-visitante-confirm').textContent = signUp ? 'Criar conta' : 'Entrar';
     $('btn-visitante-toggle').textContent = signUp ? 'Já tenho conta — entrar' : 'Não tenho conta — criar conta';
     $('login-visitante-pass').autocomplete = signUp ? 'new-password' : 'current-password';
+    $('login-visitante-pass').placeholder = signUp ? 'Crie uma senha (mínimo 8 caracteres)' : 'Senha';
     $('login-visitante-error').classList.add('hidden');
 }
 
@@ -208,7 +211,9 @@ async function loginVisitor(event) {
     };
     if (!supabaseClient) return showError('Login indisponível. Verifique sua internet e recarregue a página.');
     if (!/^\S+@\S+\.\S+$/.test(email)) return showError('Informe um e-mail válido.');
-    if (password.length < 6) return showError('A senha precisa ter pelo menos 6 caracteres.');
+    // Contas novas exigem 8 caracteres; contas antigas com 6 ou 7 continuam entrando
+    const minimo = state.signUpMode ? 8 : 6;
+    if (password.length < minimo) return showError(`A senha precisa ter pelo menos ${minimo} caracteres.`);
 
     setButtonLoading(button, true, state.signUpMode ? 'Criando conta...' : 'Entrando...');
     try {

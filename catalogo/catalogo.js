@@ -187,7 +187,7 @@ async function iniciarDetalhe() {
                 preco.observacao ? el('p', { class: 'note' }, preco.observacao) : null,
                 botaoAssinar(produto),
                 produto.status === 'disponivel' && produto.links?.assinar
-                    ? el('p', { class: 'note' }, 'Pagamento seguro pela Stripe. Cartão de crédito, renovação mensal, cancele quando quiser.')
+                    ? el('p', { class: 'note' }, 'Pagamento seguro pela Stripe. Cartão de crédito, renovação mensal, cancele quando quiser. Ao assinar você concorda com os ', el('a', { href: 'termos' }, 'Termos de uso'), ' e a ', el('a', { href: 'privacidade' }, 'Política de Privacidade'), '.')
                     : null,
                 produto.links?.demonstracao
                     ? el('a', { class: 'btn btn-ghost', href: produto.links.demonstracao, target: '_blank', rel: 'noopener' }, 'Abrir demonstração')

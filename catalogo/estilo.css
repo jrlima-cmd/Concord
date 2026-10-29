@@ -449,3 +449,8 @@ img, svg { display: block; max-width: 100%; }
 .thanks-steps { margin-top: 18px; }
 .note-line { margin-top: 24px; color: var(--muted); font-size: 15px; }
 .footer a { color: var(--ink); text-underline-offset: 3px; }
+
+/* ---------- Páginas legais ---------- */
+.legal h1 { margin-top: 20px; }
+.legal .features { max-width: 65ch; }
+.plan .note a, .legal .body a { color: var(--accent); text-underline-offset: 3px; }
