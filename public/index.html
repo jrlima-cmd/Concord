@@ -11,8 +11,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 
+    <!-- integrity: o navegador só executa o arquivo se ele for exatamente o esperado -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js" integrity="sha384-LxBm2/oFd/wfoABz4wsZ4FnGMQVAy5QI1bhf+kHA4YKi0aFe1BJTWosfTWmlMNNY" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous"></script>
     <script src="config.js"></script>
     <script src="app.js" defer></script>
 </head>
@@ -32,6 +34,35 @@
                     <div class="role-icon">👤</div>
                     <h3>Visitante</h3>
                     <p>Compre ingressos com pagamento seguro e acesse seus QR Codes.</p>
+
+                    <form id="visitante-form" class="hidden" style="width: 100%;" novalidate>
+                        <input
+                            type="text"
+                            inputmode="email"
+                            id="login-visitante-email"
+                            placeholder="E-mail"
+                            autocomplete="email"
+                            required
+                            style="margin-bottom: 10px; font-size: 16px;"
+                        >
+                        <input
+                            type="password"
+                            id="login-visitante-pass"
+                            placeholder="Senha (mínimo 6 caracteres)"
+                            autocomplete="current-password"
+                            minlength="6"
+                            required
+                            style="margin-bottom: 12px; font-size: 16px;"
+                        >
+                        <button type="submit" class="btn btn-primary btn-block" id="btn-login-visitante-confirm">
+                            Entrar
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-block" id="btn-visitante-toggle" style="margin-top: 8px;">
+                            Não tenho conta — criar conta
+                        </button>
+                        <div id="login-visitante-error" class="form-error hidden"></div>
+                    </form>
+
                     <button type="button" class="btn btn-primary btn-block" id="btn-login-visitante">
                         Acessar como Visitante
                     </button>
@@ -74,7 +105,7 @@
                     <div class="badge-role" id="user-role-badge">Perfil: Não selecionado</div>
                 </div>
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-logout">
-                    🔄 Trocar Perfil
+                    🚪 Sair
                 </button>
             </div>
 

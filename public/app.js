@@ -1,7 +1,6 @@
 'use strict';
 
 // ==================== ESTADO ====================
-const STORAGE_ORDERS = 'svi.orders';
 const STORAGE_ROLE = 'svi.role';
 const STORAGE_STAFF_TOKEN = 'svi.staffToken';
 const SCAN_COOLDOWN_MS = 4000;
@@ -11,6 +10,8 @@ const state = {
     config: { eventName: 'Ingresso SVI', ticketPrice: 5500, currency: 'brl', maxTicketsPerOrder: 10 },
     role: null,          // 'VISITANTE' | 'SEGURANCA'
     staffToken: null,
+    session: null,       // sessão do visitante no Supabase Auth
+    signUpMode: false,
     scanner: null,
     scannerStarting: false,
     lastScan: { code: null, at: 0 },
@@ -20,6 +21,11 @@ const state = {
 
 // Endereço da API: vazio = mesmo servidor (Node); definido em config.js para a API no Supabase
 const API_BASE = (window.SVI_API_BASE || '').replace(/\/$/, '');
+
+// Login dos visitantes: cada conta enxerga somente os próprios ingressos
+const supabaseClient = window.supabase && window.SVI_SUPABASE_URL
+    ? window.supabase.createClient(window.SVI_SUPABASE_URL, window.SVI_SUPABASE_KEY)
+    : null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -79,6 +85,7 @@ async function api(path, { method = 'GET', body, auth = false } = {}) {
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (auth && state.staffToken) headers['X-Staff-Token'] = state.staffToken;
+    if (state.session) headers.Authorization = `Bearer ${state.session.access_token}`;
 
     let response;
     try {
@@ -109,21 +116,6 @@ function setButtonLoading(button, loading, label) {
     }
 }
 
-// ==================== PEDIDOS SALVOS NO NAVEGADOR ====================
-function getSavedOrders() {
-    return storageGet(localStorage, STORAGE_ORDERS, []);
-}
-
-function saveOrder(id, token) {
-    const orders = getSavedOrders().filter((o) => o.id !== id);
-    orders.unshift({ id, token });
-    storageSet(localStorage, STORAGE_ORDERS, orders);
-}
-
-function removeOrder(id) {
-    storageSet(localStorage, STORAGE_ORDERS, getSavedOrders().filter((o) => o.id !== id));
-}
-
 // ==================== PERFIS E NAVEGAÇÃO ====================
 const ROLE_TABS = {
     VISITANTE: ['comprar', 'meus-ingressos'],
@@ -136,7 +128,9 @@ async function setRole(role, initialTab) {
     $('login-screen').classList.add('hidden');
 
     const badge = $('user-role-badge');
-    badge.textContent = role === 'VISITANTE' ? 'Perfil: Visitante' : 'Perfil: Segurança (Portaria)';
+    badge.textContent = role === 'VISITANTE'
+        ? `Visitante: ${state.session?.user?.email || ''}`
+        : 'Perfil: Segurança (Portaria)';
     badge.classList.toggle('staff', role === 'SEGURANCA');
 
     document.querySelectorAll('.nav-btn').forEach((btn) => {
@@ -148,6 +142,8 @@ async function setRole(role, initialTab) {
 
 async function logout() {
     await stopScanner();
+    if (state.session && supabaseClient) await supabaseClient.auth.signOut().catch(() => {});
+    state.session = null;
     state.role = null;
     state.staffToken = null;
     storageSet(sessionStorage, STORAGE_ROLE, null);
@@ -156,6 +152,12 @@ async function logout() {
     document.querySelectorAll('.nav-btn').forEach((btn) => btn.classList.add('hidden'));
     document.querySelectorAll('.tab-content').forEach((tab) => tab.classList.remove('active'));
 
+    $('tickets-container').replaceChildren();
+    updateTicketCount(0);
+    $('login-visitante-pass').value = '';
+    $('login-visitante-error').classList.add('hidden');
+    $('visitante-form').classList.add('hidden');
+    $('btn-login-visitante').classList.remove('hidden');
     $('login-seguranca-pass').value = '';
     $('login-seguranca-error').classList.add('hidden');
     $('seguranca-form').classList.add('hidden');
@@ -175,6 +177,60 @@ async function switchTab(tabName) {
     if (tabName === 'portaria') {
         refreshStats();
         startScanner();
+    }
+}
+
+// ==================== LOGIN DO VISITANTE ====================
+const AUTH_ERRORS = {
+    'Invalid login credentials': 'E-mail ou senha incorretos.',
+    'Email not confirmed': 'Confirme seu e-mail pelo link que enviamos antes de entrar.',
+    'User already registered': 'Este e-mail já tem conta. Clique em "Já tenho conta" e entre.',
+};
+
+function setSignUpMode(signUp) {
+    state.signUpMode = signUp;
+    $('btn-login-visitante-confirm').textContent = signUp ? 'Criar conta' : 'Entrar';
+    $('btn-visitante-toggle').textContent = signUp ? 'Já tenho conta — entrar' : 'Não tenho conta — criar conta';
+    $('login-visitante-pass').autocomplete = signUp ? 'new-password' : 'current-password';
+    $('login-visitante-error').classList.add('hidden');
+}
+
+async function loginVisitor(event) {
+    event.preventDefault();
+    const errorBox = $('login-visitante-error');
+    const button = $('btn-login-visitante-confirm');
+    const email = $('login-visitante-email').value.trim();
+    const password = $('login-visitante-pass').value;
+
+    const showError = (message) => {
+        errorBox.textContent = `❌ ${message}`;
+        errorBox.classList.remove('hidden');
+    };
+    if (!supabaseClient) return showError('Login indisponível. Verifique sua internet e recarregue a página.');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return showError('Informe um e-mail válido.');
+    if (password.length < 6) return showError('A senha precisa ter pelo menos 6 caracteres.');
+
+    setButtonLoading(button, true, state.signUpMode ? 'Criando conta...' : 'Entrando...');
+    try {
+        const { data, error } = state.signUpMode
+            ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + window.location.pathname } })
+            : await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) return showError(AUTH_ERRORS[error.message] || error.message);
+
+        if (!data.session) {
+            // Projeto exige confirmação de e-mail antes do primeiro login
+            setSignUpMode(false);
+            toast('Conta criada! Abra o link que enviamos para o seu e-mail e depois entre aqui.', 'success', 9000);
+            return;
+        }
+        state.session = data.session;
+        errorBox.classList.add('hidden');
+        $('login-visitante-pass').value = '';
+        await setRole('VISITANTE');
+    } catch {
+        showError('Sem conexão com o servidor. Verifique sua internet.');
+    } finally {
+        setButtonLoading(button, false);
     }
 }
 
@@ -238,13 +294,13 @@ async function startCheckout(event) {
     const button = $('btn-pagamento');
     setButtonLoading(button, true, 'Abrindo checkout seguro...');
     try {
-        const { url, orderId, accessToken } = await api('/api/checkout', {
+        const { url } = await api('/api/checkout', {
             method: 'POST',
             body: { holderName, quantity: getQuantity(), returnPath: window.location.pathname },
         });
-        saveOrder(orderId, accessToken);
         window.location.assign(url);
     } catch (err) {
+        if (err.status === 401) return sessionExpired();
         toast(err.message, 'error');
         setButtonLoading(button, false);
     }
@@ -263,13 +319,15 @@ function closeCheckoutModal() {
 async function handleCheckoutReturn() {
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('order');
-    const token = params.get('token');
     const outcome = params.get('checkout');
-    if (!orderId || !token || !outcome) return false;
+    if (!orderId || !outcome) return false;
 
     // Limpa a URL para que um recarregamento não repita o fluxo
     history.replaceState(null, '', window.location.pathname);
-    saveOrder(orderId, token);
+    if (!state.session) {
+        toast('Entre na sua conta para ver os ingressos comprados.', 'warning', 6000);
+        return false;
+    }
     await setRole('VISITANTE', outcome === 'success' ? 'meus-ingressos' : 'comprar');
 
     if (outcome === 'cancel') {
@@ -288,10 +346,10 @@ async function handleCheckoutReturn() {
     let order = null;
     while (Date.now() < deadline) {
         try {
-            order = await api(`/api/orders/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`);
+            order = await api(`/api/orders/${encodeURIComponent(orderId)}`);
             if (order.status !== 'PENDING') break;
         } catch (err) {
-            if (err.status === 404) break;
+            if (err.status === 404 || err.status === 401) break;
         }
         await new Promise((resolve) => setTimeout(resolve, 2000));
     }
@@ -322,7 +380,7 @@ function renderEmptyState() {
     return el('div', { class: 'empty-state' },
         el('div', { class: 'empty-state-icon' }, '🎫'),
         el('div', { class: 'empty-state-title' }, 'Nenhum ingresso adquirido'),
-        el('div', { class: 'empty-state-message' }, 'Você ainda não possui ingressos neste dispositivo. Vá para "Comprar" para adquirir os seus.'),
+        el('div', { class: 'empty-state-message' }, 'Você ainda não possui ingressos nesta conta. Vá para "Comprar" para adquirir os seus.'),
         el('button', { class: 'btn btn-primary', type: 'button', onclick: () => switchTab('comprar') }, 'Comprar Ingressos')
     );
 }
@@ -388,7 +446,7 @@ function renderTicketCard(ticket) {
     );
 }
 
-function renderOrder(order, saved) {
+function renderOrder(order) {
     const header = el('div', { class: 'order-header' },
         el('span', {}, 'Pedido de ', el('strong', {}, order.holderName), ` · ${formatDate(order.createdAt)}`),
         el('span', {}, `${order.quantity}x · `, el('strong', {}, formatMoney(order.amountTotal, order.currency)))
@@ -401,27 +459,13 @@ function renderOrder(order, saved) {
         );
     }
 
-    const notices = {
-        PENDING: ['badge-pending', 'Aguardando pagamento', 'Se você já pagou, a confirmação pode levar alguns instantes.'],
-        EXPIRED: ['badge-used', 'Expirado', 'O checkout expirou sem pagamento. Nenhuma cobrança foi feita.'],
-        FAILED: ['badge-used', 'Pagamento não concluído', 'O pagamento falhou ou foi recusado. Nenhum ingresso foi emitido.'],
-    };
-    const [badgeClass, title, message] = notices[order.status] || notices.FAILED;
-
-    const actions = order.status === 'PENDING'
-        ? el('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: renderMyTickets }, '↻ Verificar')
-        : el('button', {
-            class: 'btn btn-secondary btn-sm',
-            type: 'button',
-            onclick: () => { removeOrder(saved.id); renderMyTickets(); },
-        }, 'Remover');
-
+    // A API só lista pedidos pagos ou aguardando pagamento
     return el('div', { class: 'order-block' },
         header,
         el('div', { class: 'order-notice' },
-            el('span', { class: `badge ${badgeClass}` }, title),
-            el('span', { class: 'grow muted' }, message),
-            actions
+            el('span', { class: 'badge badge-pending' }, 'Aguardando pagamento'),
+            el('span', { class: 'grow muted' }, 'Se você já pagou, a confirmação pode levar alguns instantes.'),
+            el('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: renderMyTickets }, '↻ Verificar')
         )
     );
 }
@@ -429,46 +473,42 @@ function renderOrder(order, saved) {
 let renderSequence = 0;
 async function renderMyTickets() {
     const container = $('tickets-container');
-    const saved = getSavedOrders();
     const sequence = ++renderSequence;
-
-    if (saved.length === 0) {
-        container.replaceChildren(renderEmptyState());
-        updateTicketCount(0);
-        return;
-    }
+    if (!state.session) return;
 
     if (!container.childElementCount) {
         container.replaceChildren(el('div', { class: 'empty-state' }, el('div', { class: 'spinner lg' })));
     }
 
-    const results = await Promise.all(saved.map(async (s) => {
-        try {
-            return { saved: s, order: await api(`/api/orders/${encodeURIComponent(s.id)}?token=${encodeURIComponent(s.token)}`) };
-        } catch (err) {
-            if (err.status === 404) removeOrder(s.id);
-            return { saved: s, error: err };
-        }
-    }));
-    if (sequence !== renderSequence) return; // Outra renderização mais recente já começou
-
-    const loaded = results.filter((r) => r.order);
-    const offline = results.some((r) => r.error && r.error.status !== 404);
-    if (offline) toast('Não foi possível atualizar todos os pedidos. Tente novamente.', 'warning');
-
-    if (loaded.length === 0) {
-        container.replaceChildren(offline ? el('div', { class: 'empty-state' },
+    let orders;
+    try {
+        ({ orders } = await api('/api/my/orders'));
+    } catch (err) {
+        if (sequence !== renderSequence) return;
+        if (err.status === 401) return sessionExpired();
+        container.replaceChildren(el('div', { class: 'empty-state' },
             el('div', { class: 'empty-state-icon' }, '📡'),
             el('div', { class: 'empty-state-title' }, 'Sem conexão'),
             el('div', { class: 'empty-state-message' }, 'Não conseguimos carregar seus ingressos agora.'),
             el('button', { class: 'btn btn-primary', type: 'button', onclick: renderMyTickets }, 'Tentar novamente')
-        ) : renderEmptyState());
+        ));
+        return;
+    }
+    if (sequence !== renderSequence) return; // Outra renderização mais recente já começou
+
+    if (orders.length === 0) {
+        container.replaceChildren(renderEmptyState());
         updateTicketCount(0);
         return;
     }
 
-    container.replaceChildren(...loaded.map((r) => renderOrder(r.order, r.saved)));
-    updateTicketCount(loaded.reduce((sum, r) => sum + r.order.tickets.filter((t) => t.status === 'VALID').length, 0));
+    container.replaceChildren(...orders.map(renderOrder));
+    updateTicketCount(orders.reduce((sum, o) => sum + o.tickets.filter((t) => t.status === 'VALID').length, 0));
+}
+
+async function sessionExpired() {
+    toast('Sua sessão expirou. Entre novamente.', 'error', 6000);
+    await logout();
 }
 
 function updateTicketCount(count) {
@@ -660,7 +700,13 @@ async function pasteCode() {
 
 // ==================== INICIALIZAÇÃO ====================
 function bindEvents() {
-    $('btn-login-visitante').addEventListener('click', () => setRole('VISITANTE'));
+    $('btn-login-visitante').addEventListener('click', () => {
+        $('btn-login-visitante').classList.add('hidden');
+        $('visitante-form').classList.remove('hidden');
+        $('login-visitante-email').focus();
+    });
+    $('visitante-form').addEventListener('submit', loginVisitor);
+    $('btn-visitante-toggle').addEventListener('click', () => setSignUpMode(!state.signUpMode));
     $('btn-login-seguranca-trigger').addEventListener('click', () => {
         $('btn-login-seguranca-trigger').classList.add('hidden');
         $('seguranca-form').classList.remove('hidden');
@@ -702,6 +748,13 @@ function bindEvents() {
 async function init() {
     bindEvents();
 
+    // O supabase-js renova o token sozinho; mantemos a cópia usada nas chamadas da API
+    if (supabaseClient) {
+        const { data } = await supabaseClient.auth.getSession();
+        state.session = data.session;
+        supabaseClient.auth.onAuthStateChange((_event, session) => { state.session = session; });
+    }
+
     try {
         state.config = await api('/api/config');
     } catch {
@@ -716,7 +769,7 @@ async function init() {
     // Restaura a sessão da aba (recarregar a página não exige novo login)
     const savedRole = storageGet(sessionStorage, STORAGE_ROLE, null);
     const savedToken = storageGet(sessionStorage, STORAGE_STAFF_TOKEN, null);
-    if (savedRole === 'VISITANTE') {
+    if (state.session && savedRole !== 'SEGURANCA') {
         await setRole('VISITANTE');
     } else if (savedRole === 'SEGURANCA' && savedToken) {
         state.staffToken = savedToken;
