@@ -33,8 +33,13 @@ const stripe = new Stripe(config.stripeSecretKey || 'sk_missing', {
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 const TICKET_CODE_PATTERN = /^TK-[A-Z0-9]{6,16}$/;
-const LOGIN_MAX_FAILURES = 5;
+const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MINUTES = 5;
+// Checkout da Stripe expira em 60 min; limita pedidos abertos por pessoa nesse intervalo
+const MAX_PENDING_ORDERS = 5;
+const PENDING_WINDOW_MINUTES = 60;
+// Pedidos pendentes mais antigos já expiraram na Stripe; não vale consultar de novo
+const REFRESH_PENDING_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -111,6 +116,16 @@ function staffTokenFrom(req: Request): string | null {
     return auth.startsWith('Bearer ') ? auth.slice(7) : null;
 }
 
+/** Usuário logado (Supabase Auth) a partir do header Authorization: Bearer <access token>. */
+async function currentUser(req: Request): Promise<{ id: string; email?: string } | null> {
+    const auth = req.headers.get('authorization') ?? '';
+    if (!auth.startsWith('Bearer ')) return null;
+    const { data, error } = await db.auth.getUser(auth.slice(7));
+    return error || !data.user ? null : { id: data.user.id, email: data.user.email };
+}
+
+const LOGIN_REQUIRED = 'Entre na sua conta para continuar.';
+
 function clientIp(req: Request): string {
     return (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
 }
@@ -118,6 +133,7 @@ function clientIp(req: Request): string {
 // ---------- pedidos ----------
 type Order = {
     id: string;
+    user_id: string | null;
     access_token: string;
     stripe_session_id: string | null;
     holder_name: string;
@@ -237,6 +253,9 @@ async function handleWebhook(req: Request): Promise<Response> {
 }
 
 async function handleCheckout(req: Request): Promise<Response> {
+    const user = await currentUser(req);
+    if (!user) return json({ error: LOGIN_REQUIRED }, 401);
+
     const body = await req.json().catch(() => ({}));
     const holderName = String(body?.holderName ?? '').trim().replace(/\s+/g, ' ');
     const quantity = Number(body?.quantity);
@@ -259,20 +278,31 @@ async function handleCheckout(req: Request): Promise<Response> {
     const order = {
         id: `ord_${randomHex(12)}`,
         access_token: randomToken(24),
-        holder_name: holderName,
-        quantity,
-        unit_amount: config.ticketPriceCents,
-        amount_total: config.ticketPriceCents * quantity,
-        currency: config.currency,
     };
-    const { error: insertError } = await db.from('orders').insert(order);
+    const { data: created, error: insertError } = await db.rpc('create_order_limited', {
+        p_id: order.id,
+        p_user_id: user.id,
+        p_access_token: order.access_token,
+        p_holder_name: holderName,
+        p_quantity: quantity,
+        p_unit_amount: config.ticketPriceCents,
+        p_currency: config.currency,
+        p_max_pending: MAX_PENDING_ORDERS,
+        p_window_minutes: PENDING_WINDOW_MINUTES,
+    });
     if (insertError) throw insertError;
+    if (!created) {
+        return json({
+            error: 'Você tem pagamentos em aberto. Conclua um deles ou aguarde até 1 hora para iniciar outro.',
+        }, 429);
+    }
 
     try {
         const returnUrl = `${returnBase}${returnPath}?order=${order.id}&token=${order.access_token}`;
         const params: Stripe.Checkout.SessionCreateParams = {
             mode: 'payment',
             client_reference_id: order.id,
+            ...(user.email ? { customer_email: user.email } : {}),
             metadata: { order_id: order.id, holder_name: holderName },
             line_items: [{
                 quantity,
@@ -305,39 +335,63 @@ async function handleCheckout(req: Request): Promise<Response> {
     }
 }
 
-async function handleGetOrder(id: string, url: URL): Promise<Response> {
+/** Se o pedido ainda está pendente, consulta a Stripe diretamente (fallback do webhook). */
+async function refreshPending(order: Order): Promise<Order> {
+    if (order.status !== 'PENDING' || !order.stripe_session_id) return order;
+    if (Date.now() - new Date(order.created_at).getTime() > REFRESH_PENDING_MAX_AGE_MS) return order;
+    try {
+        const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
+        return (await syncFromSession(session)) ?? order;
+    } catch (err) {
+        console.warn(`[SVI] Falha ao consultar sessão ${order.stripe_session_id}: ${(err as Error).message}`);
+        return order;
+    }
+}
+
+async function handleGetOrder(req: Request, id: string): Promise<Response> {
+    const user = await currentUser(req);
+    if (!user) return json({ error: LOGIN_REQUIRED }, 401);
+
+    // Cada usuário só enxerga os próprios pedidos
     const order = await getOrder(id);
-    if (!order || !(await safeEqual(url.searchParams.get('token') ?? '', order.access_token))) {
+    if (!order || order.user_id !== user.id) {
         return json({ error: 'Pedido não encontrado.' }, 404);
     }
+    return json(await publicOrder(await refreshPending(order)));
+}
 
-    let current = order;
-    // Se ainda está pendente, consulta a Stripe diretamente (fallback do webhook)
-    if (order.status === 'PENDING' && order.stripe_session_id) {
-        try {
-            const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
-            current = (await syncFromSession(session)) ?? order;
-        } catch (err) {
-            console.warn(`[SVI] Falha ao consultar sessão ${order.stripe_session_id}: ${(err as Error).message}`);
-        }
-    }
-    return json(await publicOrder(current));
+async function handleMyOrders(req: Request): Promise<Response> {
+    const user = await currentUser(req);
+    if (!user) return json({ error: LOGIN_REQUIRED }, 401);
+
+    // Pedidos expirados ou que falharam não têm ingressos; não aparecem na lista
+    const { data, error } = await db.from('orders').select('*')
+        .eq('user_id', user.id)
+        .in('status', ['PAID', 'PENDING'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+    if (error) throw error;
+
+    const orders = await Promise.all((data as Order[]).map(refreshPending));
+    const visible = orders.filter((o) => o.status === 'PAID' || o.status === 'PENDING');
+    return json({ orders: await Promise.all(visible.map(publicOrder)) });
 }
 
 async function handleStaffLogin(req: Request): Promise<Response> {
     const ip = clientIp(req);
-    const since = new Date(Date.now() - LOGIN_WINDOW_MINUTES * 60 * 1000).toISOString();
-    const { count } = await db.from('staff_login_failures')
-        .select('id', { count: 'exact', head: true })
-        .eq('ip', ip)
-        .gte('at', since);
-    if ((count ?? 0) >= LOGIN_MAX_FAILURES) {
+    // Registra a tentativa e confere o limite numa única operação no banco
+    const { data: allowed, error } = await db.rpc('staff_login_attempt', {
+        p_ip: ip,
+        p_max: LOGIN_MAX_ATTEMPTS,
+        p_window_minutes: LOGIN_WINDOW_MINUTES,
+    });
+    if (error) throw error;
+    if (!allowed) {
         return json({ error: 'Muitas tentativas. Aguarde alguns minutos.' }, 429);
     }
 
     const body = await req.json().catch(() => ({}));
     if (!config.staffPassword || !(await safeEqual(String(body?.password ?? ''), config.staffPassword))) {
-        await db.from('staff_login_failures').insert({ ip });
         return json({ error: 'Chave de acesso incorreta.' }, 401);
     }
     await db.from('staff_login_failures').delete().eq('ip', ip);
@@ -381,7 +435,7 @@ Deno.serve(async (req) => {
     const path = url.pathname.replace(/^\/(functions\/v1\/)?svi/, '').replace(/\/$/, '');
 
     try {
-        const needsStripe = ['/api/webhook', '/api/checkout'].includes(path) || path.startsWith('/api/orders/');
+        const needsStripe = ['/api/webhook', '/api/checkout', '/api/my/orders'].includes(path) || path.startsWith('/api/orders/');
         const needsStaff = path.startsWith('/api/staff/') || path === '/api/tickets/validate';
         if ((needsStripe && !config.stripeSecretKey) || (needsStaff && (!config.staffPassword || !config.sessionSecret))) {
             return json({ error: 'Servidor ainda não configurado: defina STRIPE_SECRET_KEY, STAFF_PASSWORD e SESSION_SECRET.' }, 503);
@@ -399,7 +453,8 @@ Deno.serve(async (req) => {
         if (req.method === 'POST' && path === '/api/checkout') return await handleCheckout(req);
 
         const orderMatch = path.match(/^\/api\/orders\/([A-Za-z0-9_]+)$/);
-        if (req.method === 'GET' && orderMatch) return await handleGetOrder(orderMatch[1], url);
+        if (req.method === 'GET' && orderMatch) return await handleGetOrder(req, orderMatch[1]);
+        if (req.method === 'GET' && path === '/api/my/orders') return await handleMyOrders(req);
 
         if (req.method === 'POST' && path === '/api/staff/login') return await handleStaffLogin(req);
 
