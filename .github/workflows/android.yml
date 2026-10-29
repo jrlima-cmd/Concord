@@ -54,6 +54,13 @@ jobs:
         working-directory: mobile/android
         run: ./gradlew assembleDebug
 
+      # A impressão digital deve ser sempre a mesma (chave fixa em mobile/android/app/debug.keystore)
+      - name: Conferir assinatura do APK de teste
+        working-directory: mobile/android
+        run: |
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep SHA-256
+
       - uses: actions/upload-artifact@v7
         with:
           name: svi-android-teste

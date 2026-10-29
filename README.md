@@ -114,6 +114,8 @@ Projeto [Capacitor](https://capacitorjs.com) em `mobile/`, que empacota o site d
 
 **Baixar o APK pronto:** a cada mudança em `public/` ou `mobile/`, o GitHub Actions (workflow "App Android") gera o APK de teste. Abra a execução em **Actions › App Android**, baixe `svi-android-teste` em *Artifacts*, descompacte e instale o `app-debug.apk` no celular (o Android pede para permitir a instalação de fontes desconhecidas).
 
+O APK de teste é sempre assinado com a mesma chave (`mobile/android/app/debug.keystore`), então as versões novas instalam por cima das antigas sem perder o login. Essa chave é só para testes: quem tiver acesso ao repositório consegue assinar um APK com ela. A versão da Google Play usa a chave própria, guardada nos segredos do GitHub.
+
 **Compilar no computador** (requer Node 22, JDK 21 e Android Studio):
 
 ```bash
