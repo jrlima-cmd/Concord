@@ -444,3 +444,8 @@ img, svg { display: block; max-width: 100%; }
     .hero { padding-block: 48px 32px; }
     .section { padding-block: 44px; }
 }
+
+/* ---------- Agradecimento ---------- */
+.thanks-steps { margin-top: 18px; }
+.note-line { margin-top: 24px; color: var(--muted); font-size: 15px; }
+.footer a { color: var(--ink); text-underline-offset: 3px; }

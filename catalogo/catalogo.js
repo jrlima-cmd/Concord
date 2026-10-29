@@ -2,6 +2,8 @@
 
 // Contato exibido nos botões "Falar com a Ghost tech"
 const CONTATO_EMAIL = 'joaorafaeloliveiradelima@gmail.com';
+// Portal da Stripe onde o assinante vê faturas, troca o cartão ou cancela
+const PORTAL_ASSINANTE = 'https://billing.stripe.com/p/login/test_5kQ4gBedpcOX08W8C23VC00';
 
 const ICONES = {
     ingresso: '<path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2"/>',
@@ -54,10 +56,20 @@ function blocoPreco(produto) {
     );
 }
 
-function linkContato(produto, rotulo = 'Quero assinar') {
+function linkContato(produto, rotulo = 'Quero assinar', classe = 'btn btn-accent') {
     const assunto = encodeURIComponent(`Quero assinar o ${produto.nome}`);
     const corpo = encodeURIComponent(`Olá! Tenho interesse no ${produto.nome} (${produto.titulo}).\n\nMeu nome:\nMinha empresa:\nTelefone:`);
-    return el('a', { class: 'btn btn-accent', href: `mailto:${CONTATO_EMAIL}?subject=${assunto}&body=${corpo}` }, rotulo);
+    return el('a', { class: classe, href: `mailto:${CONTATO_EMAIL}?subject=${assunto}&body=${corpo}` }, rotulo);
+}
+
+// Assinatura pelo link de pagamento da Stripe; sem link, cai no contato por e-mail
+function botaoAssinar(produto, classe = 'btn btn-accent') {
+    if (produto.status === 'disponivel' && produto.links?.assinar) {
+        return el('a', { class: classe, href: produto.links.assinar }, 'Assinar agora');
+    }
+    return produto.status === 'disponivel'
+        ? linkContato(produto, 'Quero assinar', classe)
+        : linkContato(produto, 'Avise-me quando lançar', classe);
 }
 
 async function carregarProdutos() {
@@ -85,6 +97,7 @@ function cartao(produto) {
         el('p', {}, produto.resumo),
         blocoPreco(produto),
         el('div', { class: 'card-actions' },
+            produto.status === 'disponivel' && produto.links?.assinar ? botaoAssinar(produto) : null,
             el('a', { class: 'btn btn-primary', href: url }, 'Ver detalhes'),
             produto.links?.demonstracao
                 ? el('a', { class: 'btn btn-ghost', href: produto.links.demonstracao, target: '_blank', rel: 'noopener' }, 'Demonstração')
@@ -172,20 +185,37 @@ async function iniciarDetalhe() {
                 el('div', { class: 'card-cat' }, 'Plano'),
                 blocoPreco(produto),
                 preco.observacao ? el('p', { class: 'note' }, preco.observacao) : null,
-                produto.status === 'disponivel'
-                    ? linkContato(produto)
-                    : linkContato(produto, 'Avise-me quando lançar'),
+                botaoAssinar(produto),
+                produto.status === 'disponivel' && produto.links?.assinar
+                    ? el('p', { class: 'note' }, 'Pagamento seguro pela Stripe. Cartão de crédito, renovação mensal, cancele quando quiser.')
+                    : null,
                 produto.links?.demonstracao
                     ? el('a', { class: 'btn btn-ghost', href: produto.links.demonstracao, target: '_blank', rel: 'noopener' }, 'Abrir demonstração')
                     : null,
-                el('p', { class: 'note' }, 'Ou escreva para ', el('span', { class: 'mail' }, CONTATO_EMAIL))
+                el('p', { class: 'note' }, 'Dúvidas antes de assinar? Escreva para ', el('span', { class: 'mail' }, CONTATO_EMAIL))
             )
         )
     );
 }
 
+// ==================== Página de agradecimento ====================
+async function iniciarObrigado() {
+    const id = new URLSearchParams(window.location.search).get('sistema');
+    let produto = null;
+    try {
+        produto = (await carregarProdutos()).find((p) => p.id === id) || null;
+    } catch {
+        // Sem o catálogo, a página mostra a mensagem genérica
+    }
+    if (produto) {
+        document.getElementById('obrigado-sistema').textContent = `${produto.nome}: ${produto.titulo}`;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ano').textContent = new Date().getFullYear();
+    document.querySelectorAll('[data-portal]').forEach((a) => { a.href = PORTAL_ASSINANTE; });
     if (document.getElementById('grade')) iniciarCatalogo();
     if (document.getElementById('detalhe')) iniciarDetalhe();
+    if (document.getElementById('obrigado-sistema')) iniciarObrigado();
 });

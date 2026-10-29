@@ -19,7 +19,7 @@ Copie o bloco abaixo para dentro da lista em `produtos.json` (separado do anteri
   "recursos": ["Recurso 1", "Recurso 2"],
   "publico": "Para quem o sistema é feito.",
   "preco": { "mensalidade": 4990, "taxa": "", "observacao": "Sem fidelidade." },
-  "links": { "demonstracao": "https://..." },
+  "links": { "assinar": "https://buy.stripe.com/...", "demonstracao": "https://..." },
   "icone": "agenda"
 }
 ```
@@ -31,10 +31,19 @@ Copie o bloco abaixo para dentro da lista em `produtos.json` (separado do anteri
 | `categoria` | Os filtros aparecem sozinhos quando houver mais de uma categoria |
 | `preco.mensalidade` | Em centavos (`4990` = R$ 49,90). Sem esse campo, aparece "Sob consulta" |
 | `preco.taxa` | Texto extra ao lado do preço, por exemplo `+ 10% por ingresso vendido` |
+| `links.assinar` | Link de pagamento da Stripe (assinatura mensal). Com ele, aparece o botão "Assinar agora"; sem ele, o botão abre um e-mail para a Ghost tech |
 | `links.demonstracao` | Opcional. Mostra o botão "Demonstração" |
 | `icone` | `ingresso`, `agenda`, `loja`, `grafico` ou `sistema` (padrão). Novos ícones ficam em `catalogo.js` |
 
 Os sistemas disponíveis aparecem primeiro; dentro de cada grupo vale a ordem do arquivo.
+
+## Pagamento (Stripe)
+
+Cada sistema disponível tem um produto, um preço mensal e um link de pagamento na conta Stripe "Ghost tech".
+Depois do pagamento a Stripe manda o cliente para `obrigado?sistema=<id>`. O link "Gerenciar minha assinatura"
+(constante `PORTAL_ASSINANTE` em `catalogo.js`) abre o portal da Stripe, onde o cliente vê faturas, troca o cartão
+ou cancela. Os links atuais são do **modo de teste**; para cobrar de verdade, crie os mesmos itens no modo real e
+troque os endereços.
 
 ## Publicar
 
