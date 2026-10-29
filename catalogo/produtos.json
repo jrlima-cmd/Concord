@@ -1,0 +1,29 @@
+[
+  {
+    "id": "svi",
+    "nome": "SVI",
+    "titulo": "Venda e validação de ingressos",
+    "categoria": "Eventos",
+    "status": "disponivel",
+    "resumo": "Venda ingressos online com Pix e cartão e valide a entrada pelo QR Code, direto do celular da portaria.",
+    "descricao": "O SVI cuida do evento do começo ao fim: o público compra pelo seu link, paga com Pix ou cartão pela Stripe e recebe o ingresso com QR Code na própria conta. Na entrada, a equipe abre a portaria no celular, aponta a câmera e o sistema libera ou bloqueia na hora. Cada ingresso entra uma única vez.",
+    "recursos": [
+      "Pagamento por Pix e cartão de crédito pela Stripe",
+      "Ingresso com QR Code único na conta do comprador",
+      "Portaria pelo celular com leitura de QR Code",
+      "Bloqueio automático de ingresso já utilizado",
+      "Contadores de vendidos, entradas e restantes em tempo real",
+      "Validação manual pelo código quando a câmera falhar"
+    ],
+    "publico": "Produtores de festas, shows, palestras, formaturas e eventos esportivos.",
+    "preco": {
+      "mensalidade": 4990,
+      "taxa": "+ 10% por ingresso vendido",
+      "observacao": "Eventos e ingressos ilimitados. Sem fidelidade."
+    },
+    "links": {
+      "demonstracao": "https://svi-ingressos.vercel.app"
+    },
+    "icone": "ingresso"
+  }
+]
