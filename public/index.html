@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b0f17">
+    <title>SVI - Sistema de Validação de Ingressos</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- integrity: o navegador só executa o arquivo se ele for exatamente o esperado -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js" integrity="sha384-LxBm2/oFd/wfoABz4wsZ4FnGMQVAy5QI1bhf+kHA4YKi0aFe1BJTWosfTWmlMNNY" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous"></script>
+    <script src="config.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+
+    <!-- ==================== SELEÇÃO DE PERFIL ==================== -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <div class="brand-title">🎫 SVI</div>
+            <div class="brand-subtitle">Sistema de Validação de Ingressos</div>
+            <p class="muted" style="margin-top: 10px; font-size: 15px;">
+                Selecione seu perfil para acessar o sistema
+            </p>
+
+            <div class="role-grid">
+                <div class="role-card">
+                    <div class="role-icon">👤</div>
+                    <h3>Visitante</h3>
+                    <p>Compre ingressos com pagamento seguro e acesse seus QR Codes.</p>
+
+                    <form id="visitante-form" class="hidden" style="width: 100%;" novalidate>
+                        <input
+                            type="text"
+                            inputmode="email"
+                            id="login-visitante-email"
+                            placeholder="E-mail"
+                            autocomplete="email"
+                            required
+                            style="margin-bottom: 10px; font-size: 16px;"
+                        >
+                        <input
+                            type="password"
+                            id="login-visitante-pass"
+                            placeholder="Senha"
+                            autocomplete="current-password"
+                            minlength="6"
+                            required
+                            style="margin-bottom: 12px; font-size: 16px;"
+                        >
+                        <button type="submit" class="btn btn-primary btn-block" id="btn-login-visitante-confirm">
+                            Entrar
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-block" id="btn-visitante-toggle" style="margin-top: 8px;">
+                            Não tenho conta — criar conta
+                        </button>
+                        <div id="login-visitante-error" class="form-error hidden"></div>
+                    </form>
+
+                    <button type="button" class="btn btn-primary btn-block" id="btn-login-visitante">
+                        Acessar como Visitante
+                    </button>
+                </div>
+
+                <div class="role-card">
+                    <div class="role-icon">🛡️</div>
+                    <h3>Segurança / Portaria</h3>
+                    <p>Leitura de QR Code e validação de entrada em tempo real.</p>
+
+                    <form id="seguranca-form" class="hidden" style="width: 100%;">
+                        <input
+                            type="password"
+                            id="login-seguranca-pass"
+                            placeholder="Chave de acesso"
+                            autocomplete="current-password"
+                            style="margin-bottom: 12px; text-align: center; font-size: 16px;"
+                        >
+                        <button type="submit" class="btn btn-success btn-block" id="btn-login-seguranca-confirm">
+                            Entrar na Portaria
+                        </button>
+                        <div id="login-seguranca-error" class="form-error hidden"></div>
+                    </form>
+
+                    <button type="button" class="btn btn-secondary btn-block" id="btn-login-seguranca-trigger">
+                        Acessar como Segurança
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== HEADER ==================== -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title-container">
+                <div>
+                    <div class="brand-title">🎫 SVI</div>
+                    <div class="brand-subtitle" id="event-name">Sistema de Validação de Ingressos</div>
+                    <div class="badge-role" id="user-role-badge">Perfil: Não selecionado</div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-logout">
+                    🚪 Sair
+                </button>
+            </div>
+
+            <nav class="nav-tabs">
+                <button class="nav-btn hidden" data-tab="comprar">🛒 Comprar</button>
+                <button class="nav-btn hidden" data-tab="meus-ingressos">
+                    🎟️ Meus Ingressos <span class="nav-count hidden" id="tickets-count"></span>
+                </button>
+                <button class="nav-btn hidden" data-tab="portaria">📷 Portaria (Scanner)</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- ========== COMPRAR ========== -->
+        <section class="tab-content" id="comprar">
+            <div class="card" style="max-width: 580px; margin: 0 auto;">
+                <div class="card-title">Comprar Ingressos</div>
+                <div class="card-subtitle">Pagamento processado com segurança pela Stripe.</div>
+
+                <form id="comprar-form" novalidate>
+                    <div class="form-group">
+                        <label for="nome-titular">Nome completo do titular *</label>
+                        <input
+                            type="text"
+                            id="nome-titular"
+                            placeholder="Digite seu nome completo"
+                            autocomplete="name"
+                            minlength="3"
+                            maxlength="80"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="quantidade">Quantidade de ingressos *</label>
+                        <div class="quantity-stepper">
+                            <button type="button" class="btn btn-secondary stepper-btn" id="btn-qty-minus" aria-label="Diminuir">−</button>
+                            <input type="number" id="quantidade" min="1" max="10" value="1" inputmode="numeric" required>
+                            <button type="button" class="btn btn-secondary stepper-btn" id="btn-qty-plus" aria-label="Aumentar">+</button>
+                        </div>
+                    </div>
+
+                    <div class="price-summary">
+                        <div class="price-row">
+                            <span>Valor unitário</span>
+                            <span id="valor-unitario">—</span>
+                        </div>
+                        <div class="price-row">
+                            <span>Quantidade</span>
+                            <span><span id="resumo-quantidade">1</span>x</span>
+                        </div>
+                        <div class="price-row total">
+                            <span>Total</span>
+                            <span id="valor-total">—</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-block btn-lg" id="btn-pagamento">
+                        🔒 Pagar com Stripe
+                    </button>
+                    <div class="secure-note">
+                        Você será redirecionado para o checkout seguro da Stripe. Os dados do cartão não passam por este site.
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ========== MEUS INGRESSOS ========== -->
+        <section class="tab-content" id="meus-ingressos">
+            <div class="section-header">
+                <h2>Meus Ingressos</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-print">🖨️ Imprimir</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh">↻ Atualizar</button>
+                </div>
+            </div>
+            <div id="tickets-container"></div>
+        </section>
+
+        <!-- ========== PORTARIA ========== -->
+        <section class="tab-content" id="portaria">
+            <div class="section-header">
+                <h2>Validação de Ingressos</h2>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-tile">
+                    <div class="stat-label">Vendidos</div>
+                    <div class="stat-value" id="stat-total">—</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">Entraram</div>
+                    <div class="stat-value" id="stat-used">—</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">Restantes</div>
+                    <div class="stat-value" id="stat-remaining">—</div>
+                </div>
+            </div>
+
+            <div class="portaria-layout">
+                <div>
+                    <div class="camera-hint">📱 Aponte a câmera para o QR Code do ingresso</div>
+                    <div id="qr-reader"></div>
+
+                    <form class="manual-search" id="manual-form">
+                        <label for="manual-code">Validação manual</label>
+                        <div class="manual-search-row">
+                            <input type="text" id="manual-code" placeholder="TK-XXXXXXXXXX" autocomplete="off" spellcheck="false">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-paste-code">📋 Colar</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Validar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card" style="padding: 20px;">
+                    <div class="card-title" style="font-size: 17px; margin-bottom: 14px;">Últimas leituras</div>
+                    <ul class="history-list" id="history-list">
+                        <li class="muted" style="font-size: 14px;">Nenhuma leitura ainda.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Confirmação do pagamento ao voltar do Stripe Checkout -->
+    <div class="modal" id="checkout-modal">
+        <div class="modal-content" id="checkout-modal-content"></div>
+    </div>
+
+    <!-- Resultado da validação na portaria -->
+    <div class="result-overlay hidden" id="result-overlay"></div>
+
+    <div class="toast-container" id="toast-container"></div>
+</body>
+</html>
