@@ -237,6 +237,10 @@ function createApp({ config, db, stripe }) {
     app.use('/api', (req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 
     // ---------- Front-end ----------
+    // public/config.js aponta para a API no Supabase; aqui a API é este mesmo servidor
+    app.get('/config.js', (req, res) => {
+        res.type('application/javascript').send("window.SVI_API_BASE = '';\n");
+    });
     app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 
     app.use((err, req, res, next) => {

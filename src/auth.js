@@ -34,7 +34,7 @@ function createStaffAuth({ secret, sessionHours }) {
 
     function requireStaff(req, res, next) {
         const header = req.get('authorization') || '';
-        const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+        const token = req.get('x-staff-token') || (header.startsWith('Bearer ') ? header.slice(7) : '');
         if (!verifyToken(token)) {
             return res.status(401).json({ error: 'Sessão da portaria expirada. Entre novamente.' });
         }

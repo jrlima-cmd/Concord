@@ -18,6 +18,9 @@ const state = {
     history: [],
 };
 
+// Endereço da API: vazio = mesmo servidor (Node); definido em config.js para a API no Supabase
+const API_BASE = (window.SVI_API_BASE || '').replace(/\/$/, '');
+
 const $ = (id) => document.getElementById(id);
 
 // ==================== UTILITÁRIOS ====================
@@ -75,11 +78,11 @@ function toast(message, type = 'info', duration = 4000) {
 async function api(path, { method = 'GET', body, auth = false } = {}) {
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (auth && state.staffToken) headers.Authorization = `Bearer ${state.staffToken}`;
+    if (auth && state.staffToken) headers['X-Staff-Token'] = state.staffToken;
 
     let response;
     try {
-        response = await fetch(path, {
+        response = await fetch(API_BASE + path, {
             method,
             headers,
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -237,7 +240,7 @@ async function startCheckout(event) {
     try {
         const { url, orderId, accessToken } = await api('/api/checkout', {
             method: 'POST',
-            body: { holderName, quantity: getQuantity() },
+            body: { holderName, quantity: getQuantity(), returnPath: window.location.pathname },
         });
         saveOrder(orderId, accessToken);
         window.location.assign(url);
