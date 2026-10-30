@@ -100,6 +100,24 @@ No **Portal de Afiliados Shopee → Open API**, peça acesso. Depois coloque o A
 e o Secret nos secrets do GitHub. A partir daí o robô usa os produtos que mais
 vendem e pagam mais comissão, já com o **seu link de afiliado**.
 
+## App Android
+
+A pasta `mobile/` é um app Android (Capacitor) que abre o painel publicado em
+https://concord-sable.vercel.app. Dentro do app, **Compartilhar na Shopee** abre a
+tela de compartilhar do Android com o vídeo, e a descrição já vai copiada.
+
+Para instalar:
+1. No GitHub, abra **Actions → App Android** e a execução mais recente (ela roda
+   sozinha a cada mudança em `mobile/`, ou em **Run workflow**).
+2. Em **Artifacts**, baixe `concord-android` (vem um .zip com o `app-debug.apk`).
+3. No celular, abra o APK e permita instalar de fontes desconhecidas.
+
+O app é assinado com uma chave de teste fixa (`mobile/android/app/debug.keystore`),
+então as versões novas instalam por cima das antigas. Para publicar na Google Play é
+preciso uma chave própria de loja.
+
+Se o endereço do painel mudar, troque `server.url` em `mobile/capacitor.config.json`.
+
 ## Rodar no computador
 
 ```bash

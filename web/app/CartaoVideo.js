@@ -5,8 +5,27 @@ import { mudarStatus } from "./actions";
 
 const brl = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// Dentro do app Android (Capacitor) o navegador interno não compartilha
+// arquivos, então usamos os recursos nativos do app.
+const app = () =>
+  typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.() ? window.Capacitor : null;
+const nativo = (plugin, metodo, opcoes) => {
+  const cap = app();
+  const p = cap.Plugins?.[plugin];
+  return p?.[metodo] ? p[metodo](opcoes) : cap.nativePromise(plugin, metodo, opcoes);
+};
+const emBase64 = (blob) =>
+  new Promise((ok, erro) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(",")[1]);
+    r.onerror = erro;
+    r.readAsDataURL(blob);
+  });
+
 export default function CartaoVideo({ video, url, capa }) {
   const [arquivo, setArquivo] = useState(null);
+  const [noApp, setNoApp] = useState(false);
+  const [preparando, setPreparando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [pendente, startTransition] = useTransition();
   const nomeArquivo = `achadinho-${video.item_id}.mp4`;
@@ -14,6 +33,10 @@ export default function CartaoVideo({ video, url, capa }) {
   // Baixa o vídeo antes do toque: o iPhone só abre o "Compartilhar"
   // se ele for chamado logo após o clique, sem espera.
   useEffect(() => {
+    if (app()) {
+      setNoApp(true);
+      return;
+    }
     if (!url || video.status !== "pendente" || !navigator.canShare) return;
     let cancelado = false;
     fetch(url)
@@ -33,9 +56,12 @@ export default function CartaoVideo({ video, url, capa }) {
     setTimeout(() => setAviso(""), 2500);
   };
 
+  const copiarTexto = (texto) =>
+    app() ? nativo("Clipboard", "write", { string: texto }) : navigator.clipboard.writeText(texto);
+
   const copiar = async (texto, oque) => {
     try {
-      await navigator.clipboard.writeText(texto);
+      await copiarTexto(texto);
       avisar(`${oque} copiado! ✅`);
     } catch {
       avisar("Não consegui copiar 😕");
@@ -44,12 +70,26 @@ export default function CartaoVideo({ video, url, capa }) {
 
   const compartilhar = async () => {
     // Muitos apps ignoram o texto junto com o vídeo, então copiamos a descrição antes.
-    navigator.clipboard?.writeText(video.legenda).catch(() => {});
+    copiarTexto(video.legenda).catch(() => {});
     try {
-      await navigator.share({ files: [arquivo], text: video.legenda });
+      if (noApp) {
+        setPreparando(true);
+        const blob = await (await fetch(url)).blob();
+        const { uri } = await nativo("Filesystem", "writeFile", {
+          path: nomeArquivo,
+          data: await emBase64(blob),
+          directory: "CACHE",
+        });
+        setPreparando(false);
+        await nativo("Share", "share", { files: [uri], text: video.legenda, dialogTitle: "Postar na Shopee" });
+      } else {
+        await navigator.share({ files: [arquivo], text: video.legenda });
+      }
       if (confirm("Postou na Shopee? Marcar como postado?")) acao("postado");
     } catch (e) {
-      if (e.name !== "AbortError") avisar("Não deu para compartilhar. Use Baixar.");
+      setPreparando(false);
+      const cancelou = e.name === "AbortError" || /cancel/i.test(e.message || "");
+      if (!cancelou) avisar(noApp ? "Não deu para compartilhar. Tente de novo." : "Não deu para compartilhar. Use Baixar.");
     }
   };
 
@@ -90,14 +130,14 @@ export default function CartaoVideo({ video, url, capa }) {
         )}
 
         <div className="acoes">
-          {video.status === "pendente" && arquivo && (
-            <button className="botao primario largo" onClick={compartilhar}>
-              Compartilhar na Shopee
+          {video.status === "pendente" && url && (arquivo || noApp) && (
+            <button className="botao primario largo" onClick={compartilhar} disabled={preparando}>
+              {preparando ? "Preparando o vídeo…" : "Compartilhar na Shopee"}
             </button>
           )}
           <button className="botao" onClick={() => copiar(video.legenda, "Texto da descrição")}>Copiar descrição</button>
           <button className="botao" onClick={() => copiar(video.link_afiliado, "Link")}>Copiar link</button>
-          {url && (
+          {url && !noApp && (
             <a className="botao" href={`${url}&download=${nomeArquivo}`}>
               Baixar
             </a>

@@ -1,0 +1,52 @@
+name: App Android
+
+# Gera o app Android do Concord, que abre o painel publicado na Vercel.
+# O APK fica em "Artifacts" na página de cada execução, pronto para instalar no celular.
+on:
+  push:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Gerar APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Preparar o projeto Android
+        run: npx cap sync android
+
+      - name: Compilar APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: concord-android
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

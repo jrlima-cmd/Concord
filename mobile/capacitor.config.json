@@ -1,0 +1,13 @@
+{
+  "appId": "br.concord.achadinhos",
+  "appName": "Concord",
+  "webDir": "www",
+  "server": {
+    "url": "https://concord-sable.vercel.app",
+    "androidScheme": "https",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#fff7f5"
+  }
+}
