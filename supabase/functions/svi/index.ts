@@ -7,7 +7,8 @@ const env = (name: string, fallback = '') => Deno.env.get(name) ?? fallback;
 
 const config = {
     stripeSecretKey: env('STRIPE_SECRET_KEY'),
-    stripeWebhookSecret: env('STRIPE_WEBHOOK_SECRET'),
+    // trim: chaves coladas pelo celular costumam vir com espaço ou quebra de linha no fim
+    stripeWebhookSecret: env('STRIPE_WEBHOOK_SECRET').trim(),
     stripePaymentMethods: env('STRIPE_PAYMENT_METHODS').split(',').map((m) => m.trim()).filter(Boolean),
     siteUrl: env('SITE_URL').replace(/\/$/, ''),
     eventName: env('EVENT_NAME', 'Ingresso SVI'),
