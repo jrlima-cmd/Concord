@@ -38,8 +38,6 @@ const LOGIN_WINDOW_MINUTES = 5;
 // Checkout da Stripe expira em 60 min; limita pedidos abertos por pessoa nesse intervalo
 const MAX_PENDING_ORDERS = 5;
 const PENDING_WINDOW_MINUTES = 60;
-// Pedidos pendentes mais antigos já expiraram na Stripe; não vale consultar de novo
-const REFRESH_PENDING_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -335,10 +333,12 @@ async function handleCheckout(req: Request): Promise<Response> {
     }
 }
 
-/** Se o pedido ainda está pendente, consulta a Stripe diretamente (fallback do webhook). */
+/**
+ * Se o pedido ainda está pendente, consulta a Stripe diretamente (fallback do webhook).
+ * Sem limite de idade: uma sessão já encerrada resolve o pedido (pago ou expirado) na primeira consulta.
+ */
 async function refreshPending(order: Order): Promise<Order> {
     if (order.status !== 'PENDING' || !order.stripe_session_id) return order;
-    if (Date.now() - new Date(order.created_at).getTime() > REFRESH_PENDING_MAX_AGE_MS) return order;
     try {
         const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
         return (await syncFromSession(session)) ?? order;
