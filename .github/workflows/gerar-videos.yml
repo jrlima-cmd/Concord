@@ -1,0 +1,40 @@
+name: Gerar vídeos
+
+on:
+  schedule:
+    # 4 vídeos por dia (horário de Brasília = UTC-3): 08:47, 11:47, 17:47, 20:47
+    - cron: "47 11,14,20,23 * * *"
+  workflow_dispatch:
+    inputs:
+      quantidade:
+        description: "Quantos vídeos gerar agora"
+        default: "1"
+
+concurrency: gerar-videos
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - name: Instalar ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: npm ci
+      - name: Gerar vídeo
+        run: npm run gerar -- --quantidade "${{ inputs.quantidade || '1' }}"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+          SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
+          PALAVRAS_CHAVE: ${{ vars.PALAVRAS_CHAVE }}
+          VOZ: ${{ vars.VOZ }}

@@ -1,0 +1,56 @@
+// Acesso ao Supabase: lista de vídeos já feitos e upload do vídeo pronto.
+import { createClient } from "@supabase/supabase-js";
+import fs from "node:fs/promises";
+
+const BUCKET = "videos";
+
+function cliente() {
+  const url = process.env.SUPABASE_URL;
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !chave) throw new Error("Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  return createClient(url, chave, { auth: { persistSession: false } });
+}
+
+// Produtos que já viraram vídeo nos últimos 30 dias (para não repetir).
+export async function produtosRecentes() {
+  const desde = new Date(Date.now() - 30 * 864e5).toISOString();
+  const { data, error } = await cliente()
+    .from("videos")
+    .select("item_id")
+    .gte("created_at", desde);
+  if (error) throw error;
+  return new Set(data.map((r) => r.item_id));
+}
+
+export async function salvarVideo({ arquivo, produto, roteiro, duracao }) {
+  const db = cliente();
+  const caminho = `${new Date().toISOString().slice(0, 10)}/${produto.itemId}-${Date.now()}.mp4`;
+
+  const { error: errUpload } = await db.storage
+    .from(BUCKET)
+    .upload(caminho, await fs.readFile(arquivo), { contentType: "video/mp4" });
+  if (errUpload) throw errUpload;
+
+  const { data, error } = await db
+    .from("videos")
+    .insert({
+      item_id: produto.itemId,
+      nome_produto: produto.nome,
+      titulo: roteiro.titulo,
+      preco: produto.preco,
+      desconto: produto.desconto,
+      vendas: produto.vendas,
+      nota: produto.nota,
+      comissao: produto.comissao,
+      imagem_url: produto.imagens[0] || null,
+      link_afiliado: produto.link,
+      roteiro: roteiro.frases.join(" "),
+      legenda: roteiro.legenda,
+      video_path: caminho,
+      duracao,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}

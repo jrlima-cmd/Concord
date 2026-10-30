@@ -1,0 +1,9 @@
+{
+  "name": "Concord · Achadinhos",
+  "short_name": "Concord",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff7f5",
+  "theme_color": "#ee4d2d",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

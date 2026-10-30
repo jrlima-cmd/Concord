@@ -1,0 +1,113 @@
+:root {
+  --laranja: #ee4d2d;
+  --laranja-claro: #fff1ed;
+  --verde: #1f9d55;
+  --fundo: #fff7f5;
+  --cartao: #ffffff;
+  --texto: #1f1f1f;
+  --suave: #6b6b6b;
+  --borda: #f0dcd6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --laranja-claro: #3a1f18;
+    --fundo: #141212;
+    --cartao: #1e1b1a;
+    --texto: #f3eeec;
+    --suave: #a9a09d;
+    --borda: #332b29;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 { margin: 0; color: var(--laranja); font-size: 1.6rem; }
+h2 { margin: 0 0 6px; font-size: 1.05rem; line-height: 1.3; }
+.sub { margin: 2px 0 0; color: var(--suave); font-size: 0.9rem; }
+
+.painel { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+.topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+.gerar { margin: 18px 0 6px; }
+
+.abas {
+  display: flex; gap: 6px; margin: 16px 0;
+  overflow-x: auto; border-bottom: 1px solid var(--borda);
+}
+.abas a {
+  padding: 10px 14px; text-decoration: none; color: var(--suave);
+  border-bottom: 3px solid transparent; white-space: nowrap; font-weight: 600;
+}
+.abas a.ativa { color: var(--laranja); border-color: var(--laranja); }
+.contador {
+  display: inline-block; min-width: 22px; padding: 1px 7px; margin-left: 4px;
+  border-radius: 99px; background: var(--laranja-claro); color: var(--laranja); font-size: 0.8rem;
+}
+
+.grade {
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.video {
+  background: var(--cartao); border: 1px solid var(--borda); border-radius: 16px;
+  overflow: hidden; transition: opacity 0.2s;
+}
+.video.carregando { opacity: 0.5; pointer-events: none; }
+.video video, .sem-video {
+  display: block; width: 100%; aspect-ratio: 9 / 16; background: #000; object-fit: cover;
+}
+.sem-video { display: grid; place-items: center; color: #aaa; }
+.info { padding: 14px; }
+
+.meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+.meta strong { color: var(--laranja); font-size: 1.15rem; }
+.pequeno { color: var(--suave); font-size: 0.82rem; }
+.tag {
+  font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+  background: #ffe600; color: var(--laranja);
+}
+.tag.verde { background: #e3f6ea; color: var(--verde); }
+
+details { margin: 10px 0; font-size: 0.9rem; }
+summary { cursor: pointer; color: var(--suave); }
+.legenda {
+  white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 0.85rem;
+  background: var(--fundo); padding: 10px; border-radius: 10px; margin: 8px 0 0;
+}
+
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.botao {
+  appearance: none; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto);
+  padding: 10px 14px; border-radius: 10px; font: inherit; font-weight: 600; font-size: 0.9rem;
+  cursor: pointer; text-decoration: none; text-align: center;
+}
+.botao:disabled { opacity: 0.6; cursor: default; }
+.botao.primario { background: var(--laranja); border-color: var(--laranja); color: #fff; }
+.botao.secundario { background: var(--laranja-claro); border-color: var(--laranja); color: var(--laranja); width: 100%; }
+.botao.verde { background: var(--verde); border-color: var(--verde); color: #fff; }
+.botao.fantasma { background: transparent; color: var(--suave); }
+.botao.largo { flex-basis: 100%; padding: 13px; font-size: 1rem; }
+
+.ok { color: var(--verde); font-size: 0.9rem; margin: 8px 0 0; }
+.erro { color: #d93025; font-size: 0.9rem; margin: 8px 0 0; }
+.vazio { text-align: center; color: var(--suave); padding: 50px 10px; }
+
+.login { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
+.cartao {
+  width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px;
+  background: var(--cartao); border: 1px solid var(--borda); border-radius: 18px; padding: 28px;
+}
+.cartao input {
+  padding: 12px; border-radius: 10px; border: 1px solid var(--borda);
+  background: var(--fundo); color: var(--texto); font: inherit;
+}

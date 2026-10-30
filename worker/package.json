@@ -1,0 +1,17 @@
+{
+  "name": "concord-worker",
+  "version": "1.0.0",
+  "scripts": {
+    "gerar": "node src/index.js",
+    "gerar:teste": "node src/index.js --offline --sem-upload"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "msedge-tts": "^2.1.1"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
