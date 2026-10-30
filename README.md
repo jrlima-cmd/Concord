@@ -33,6 +33,20 @@ afiliado. Então o robô faz todo o trabalho pesado e você só toca em
   `worker/assets/music/<tema>/` (ex.: `worker/assets/music/natal/`) ou direto em
   `worker/assets/music/` para todos os temas. O robô passa a sortear entre elas.
 
+## Descrição e prompt de IA
+
+Cada vídeo chega no painel com:
+
+- **Descrição** no formato: título do produto na Shopee + hashtags (tema + produto),
+  ex.: `Kit Cortador de Biscoito Natal com Carimbo 3 Peças #Natal #Cortador`.
+  O link de afiliado fica no botão **Copiar link**.
+- **Prompt para vídeo com IA**, no mesmo modelo do vídeo de referência (10 s,
+  3 cenas, música instrumental, sem falas e sem textos), já com os dados do
+  produto. Se quiser a versão "filmada" por IA, copie o prompt e cole no
+  YouTube Create / Gemini junto com a foto do produto.
+
+O modelo do prompt de cada tema fica em `worker/src/prompt.js`.
+
 ## Configuração (uma vez só)
 
 ### 1. Supabase
@@ -95,7 +109,8 @@ Precisa de Node 20+ e `ffmpeg` instalado.
 
 ## Personalizar
 
-- **Descrição do post:** `worker/src/descricao.js` (aberturas, chamadas e hashtags)
+- **Descrição do post:** `worker/src/descricao.js` (hashtags)
+- **Prompt de IA por tema:** `worker/src/prompt.js` (cenário, uso, resultado e música)
 - **Temas, cores e estilo da música:** `worker/src/tema.js`
 - **Cenas e transições:** `worker/src/ffmpeg.js` (lista `CENAS`)
 - **Critério de "em alta":** `worker/src/shopee.js`, função `score`, e `NOTA_MINIMA` (padrão 4.5)

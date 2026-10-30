@@ -22,7 +22,7 @@ export async function produtosRecentes() {
   return new Set(data.map((r) => r.item_id));
 }
 
-export async function salvarVideo({ arquivo, capa, produto, titulo, legenda, tema, duracao }) {
+export async function salvarVideo({ arquivo, capa, produto, titulo, legenda, prompt, tema, duracao }) {
   const db = cliente();
   const caminho = `${new Date().toISOString().slice(0, 10)}/${produto.itemId}-${Date.now()}.mp4`;
 
@@ -51,6 +51,7 @@ export async function salvarVideo({ arquivo, capa, produto, titulo, legenda, tem
       link_afiliado: produto.link,
       tema,
       legenda,
+      prompt,
       video_path: caminho,
       duracao,
     })

@@ -14,6 +14,8 @@ create table if not exists public.videos (
   link_afiliado text not null,
   tema          text,
   legenda       text not null,
+  -- prompt para gerar a versão com IA no YouTube Create / Gemini
+  prompt        text,
   video_path    text not null,
   duracao       numeric(6,2),
   -- pendente -> postado  (ou descartado)

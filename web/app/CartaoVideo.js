@@ -33,10 +33,10 @@ export default function CartaoVideo({ video, url, capa }) {
     setTimeout(() => setAviso(""), 2500);
   };
 
-  const copiar = async () => {
+  const copiar = async (texto, oque) => {
     try {
-      await navigator.clipboard.writeText(video.legenda);
-      avisar("Descrição copiada! ✅");
+      await navigator.clipboard.writeText(texto);
+      avisar(`${oque} copiado! ✅`);
     } catch {
       avisar("Não consegui copiar 😕");
     }
@@ -78,9 +78,16 @@ export default function CartaoVideo({ video, url, capa }) {
         </p>
 
         <details>
-          <summary>Descrição e link</summary>
+          <summary>Descrição</summary>
           <pre className="legenda">{video.legenda}</pre>
         </details>
+        {video.prompt && (
+          <details>
+            <summary>Prompt para vídeo com IA</summary>
+            <pre className="legenda">{video.prompt}</pre>
+            <button className="botao" onClick={() => copiar(video.prompt, "Prompt")}>Copiar prompt</button>
+          </details>
+        )}
 
         <div className="acoes">
           {video.status === "pendente" && arquivo && (
@@ -88,7 +95,8 @@ export default function CartaoVideo({ video, url, capa }) {
               Compartilhar na Shopee
             </button>
           )}
-          <button className="botao" onClick={copiar}>Copiar descrição</button>
+          <button className="botao" onClick={() => copiar(video.legenda, "Texto da descrição")}>Copiar descrição</button>
+          <button className="botao" onClick={() => copiar(video.link_afiliado, "Link")}>Copiar link</button>
           {url && (
             <a className="botao" href={`${url}&download=${nomeArquivo}`}>
               Baixar

@@ -11,6 +11,7 @@ import path from "node:path";
 import { buscarEmAlta, modoDemo } from "./shopee.js";
 import { gerarDescricao, brl } from "./descricao.js";
 import { detectarTema } from "./tema.js";
+import { gerarPrompt } from "./prompt.js";
 import { renderizar, imagemDemo, run } from "./ffmpeg.js";
 import { produtosRecentes, salvarVideo } from "./banco.js";
 
@@ -34,6 +35,7 @@ async function gerarUm(produto) {
   try {
     const tema = detectarTema(produto.nome);
     const { titulo, legenda } = gerarDescricao(produto, tema);
+    const prompt = gerarPrompt(produto, tema);
     console.log(`\n▶ ${titulo} — ${brl(produto.preco)} (tema: ${tema})`);
 
     const imagem = path.join(tmp, "produto.jpg");
@@ -54,9 +56,10 @@ async function gerarUm(produto) {
       await fs.copyFile(saida, destino);
       await fs.writeFile(destino.replace(/\.mp4$/, ".txt"), legenda);
       await fs.copyFile(capa, destino.replace(/\.mp4$/, ".jpg"));
+      await fs.writeFile(destino.replace(/\.mp4$/, ".prompt.txt"), prompt);
       console.log(`  ✓ Salvo em ${destino} (${duracao.toFixed(1)}s)`);
     } else {
-      const id = await salvarVideo({ arquivo: saida, capa, produto, titulo, legenda, tema, duracao });
+      const id = await salvarVideo({ arquivo: saida, capa, produto, titulo, legenda, prompt, tema, duracao });
       console.log(`  ✓ Na fila do painel (id ${id}, ${duracao.toFixed(1)}s)`);
     }
   } finally {
