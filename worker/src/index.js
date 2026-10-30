@@ -1,23 +1,27 @@
-// Robô: escolhe um produto em alta, gera roteiro + narração + vídeo e
-// manda para a fila de aprovação no site.
+// Robô: escolhe um produto em alta, monta o vídeo com trilha temática e
+// manda para a fila do painel.
 //
 //   npm run gerar                      # 1 vídeo, publica no Supabase
 //   npm run gerar -- --quantidade 4    # vários de uma vez
-//   npm run gerar:teste                # sem internet/Supabase, salva em ./saida
+//   npm run gerar:teste                # sem Supabase, salva em ./saida
+//   npm run gerar:teste -- --imagem foto.jpg   # testa com uma foto sua
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { buscarEmAlta, modoDemo } from "./shopee.js";
-import { gerarRoteiro, brl } from "./roteiro.js";
-import { narrar } from "./voz.js";
+import { gerarDescricao, brl } from "./descricao.js";
+import { detectarTema } from "./tema.js";
 import { renderizar, imagemDemo } from "./ffmpeg.js";
 import { produtosRecentes, salvarVideo } from "./banco.js";
 
 const args = process.argv.slice(2);
-const offline = args.includes("--offline");
 const semUpload = args.includes("--sem-upload");
-const iQtd = args.indexOf("--quantidade");
-const quantidade = iQtd >= 0 ? Number(args[iQtd + 1]) : 1;
+const valor = (nome) => {
+  const i = args.indexOf(nome);
+  return i >= 0 ? args[i + 1] : undefined;
+};
+const quantidade = Number(valor("--quantidade") || 1);
+const imagemTeste = valor("--imagem");
 
 async function baixarImagem(url, arquivo) {
   const res = await fetch(url);
@@ -28,36 +32,29 @@ async function baixarImagem(url, arquivo) {
 async function gerarUm(produto) {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "concord-"));
   try {
-    const roteiro = gerarRoteiro(produto);
-    console.log(`\n▶ ${roteiro.titulo} — ${brl(produto.preco)}`);
-    console.log(`  Roteiro: ${roteiro.frases.join(" ")}`);
+    const tema = detectarTema(produto.nome);
+    const { titulo, legenda } = gerarDescricao(produto, tema);
+    console.log(`\n▶ ${titulo} — ${brl(produto.preco)} (tema: ${tema})`);
 
     const imagem = path.join(tmp, "produto.jpg");
-    if (produto.imagens[0]) await baixarImagem(produto.imagens[0], imagem);
-    else await imagemDemo({ ...produto, titulo: roteiro.titulo }, imagem);
+    if (imagemTeste) await fs.copyFile(imagemTeste, imagem);
+    else if (produto.imagens[0]) await baixarImagem(produto.imagens[0], imagem);
+    else await imagemDemo({ ...produto, titulo }, imagem);
 
-    const narracao = await narrar(roteiro.frases, tmp, { offline });
     const saida = path.join(tmp, "video.mp4");
-    const { duracao } = await renderizar({
-      imagem,
-      titulo: roteiro.titulo,
-      preco: brl(produto.preco),
-      desconto: produto.desconto,
-      narracao,
-      saida,
-      tmp,
-    });
+    const { duracao, musicaGerada } = await renderizar({ imagem, tema, saida, tmp });
+    console.log(`  Trilha: ${musicaGerada ? "composta pelo robô" : "da pasta assets/music"}`);
 
     if (semUpload) {
       const pasta = path.resolve("saida");
       await fs.mkdir(pasta, { recursive: true });
       const destino = path.join(pasta, `${produto.itemId}.mp4`);
       await fs.copyFile(saida, destino);
-      await fs.writeFile(destino.replace(/\.mp4$/, ".txt"), roteiro.legenda);
+      await fs.writeFile(destino.replace(/\.mp4$/, ".txt"), legenda);
       console.log(`  ✓ Salvo em ${destino} (${duracao.toFixed(1)}s)`);
     } else {
-      const id = await salvarVideo({ arquivo: saida, produto, roteiro, duracao });
-      console.log(`  ✓ Na fila de aprovação (id ${id}, ${duracao.toFixed(1)}s)`);
+      const id = await salvarVideo({ arquivo: saida, produto, titulo, legenda, tema, duracao });
+      console.log(`  ✓ Na fila do painel (id ${id}, ${duracao.toFixed(1)}s)`);
     }
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

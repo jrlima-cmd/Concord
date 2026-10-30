@@ -57,6 +57,7 @@ function normalizar(p) {
 }
 
 const DEMO = [
+  { itemId: "demo-0", nome: "Kit Cortador de Biscoito Natal com Carimbo 3 Peças", preco: 24.9, precoMax: 24.9, desconto: 38, vendas: 5600, nota: 4.9, comissao: 0.1, loja: "Loja Demo", cor: "0xA9D6F5" },
   { itemId: "demo-1", nome: "Mini Liquidificador Portátil Recarregável USB 380ml", preco: 39.9, precoMax: 39.9, desconto: 45, vendas: 12800, nota: 4.8, comissao: 0.08, loja: "Loja Demo", cor: "0xF6A6B2" },
   { itemId: "demo-2", nome: "Organizador de Maquiagem Giratório 360° Acrílico", preco: 54.9, precoMax: 59.9, desconto: 30, vendas: 7400, nota: 4.9, comissao: 0.1, loja: "Loja Demo", cor: "0xB8D8F0" },
   { itemId: "demo-3", nome: "Luminária LED Nuvem Decorativa com Controle", preco: 29.9, precoMax: 29.9, desconto: 50, vendas: 21500, nota: 4.7, comissao: 0.07, loja: "Loja Demo", cor: "0xFFE29A" },

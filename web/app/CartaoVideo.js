@@ -36,14 +36,14 @@ export default function CartaoVideo({ video, url }) {
   const copiar = async () => {
     try {
       await navigator.clipboard.writeText(video.legenda);
-      avisar("Legenda copiada! ✅");
+      avisar("Descrição copiada! ✅");
     } catch {
       avisar("Não consegui copiar 😕");
     }
   };
 
   const compartilhar = async () => {
-    // Muitos apps ignoram o texto junto com o vídeo, então copiamos a legenda antes.
+    // Muitos apps ignoram o texto junto com o vídeo, então copiamos a descrição antes.
     navigator.clipboard?.writeText(video.legenda).catch(() => {});
     try {
       await navigator.share({ files: [arquivo], text: video.legenda });
@@ -78,7 +78,7 @@ export default function CartaoVideo({ video, url }) {
         </p>
 
         <details>
-          <summary>Legenda e link</summary>
+          <summary>Descrição e link</summary>
           <pre className="legenda">{video.legenda}</pre>
         </details>
 
@@ -88,7 +88,7 @@ export default function CartaoVideo({ video, url }) {
               Compartilhar na Shopee
             </button>
           )}
-          <button className="botao" onClick={copiar}>Copiar legenda</button>
+          <button className="botao" onClick={copiar}>Copiar descrição</button>
           {url && (
             <a className="botao" href={`${url}&download=${nomeArquivo}`}>
               Baixar

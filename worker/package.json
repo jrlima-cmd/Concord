@@ -3,11 +3,10 @@
   "version": "1.0.0",
   "scripts": {
     "gerar": "node src/index.js",
-    "gerar:teste": "node src/index.js --offline --sem-upload"
+    "gerar:teste": "node src/index.js --sem-upload"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.118.0",
-    "msedge-tts": "^2.1.1"
+    "@supabase/supabase-js": "^2.118.0"
   },
   "type": "module",
   "private": true,

@@ -12,7 +12,7 @@ create table if not exists public.videos (
   comissao      numeric(6,4) default 0,
   imagem_url    text,
   link_afiliado text not null,
-  roteiro       text not null,
+  tema          text,
   legenda       text not null,
   video_path    text not null,
   duracao       numeric(6,2),

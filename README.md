@@ -1,16 +1,16 @@
 # Concord — achadinhos Shopee no automático
 
-Robô que, **4 vezes por dia**, escolhe um produto em alta na Shopee, escreve o
-roteiro, narra com voz feminina suave e monta um vídeo vertical (9:16). O vídeo
-cai num painel no celular, onde você assiste e posta com **um toque**.
+Robô que, **4 vezes por dia**, escolhe um produto em alta na Shopee e monta um
+vídeo vertical (9:16) estilo comercial, com música temática, **100% de graça**.
+O vídeo cai num painel no celular, onde você assiste e posta com **um toque**.
 
 ```
 GitHub Actions (4x/dia)          Supabase                 Vercel (painel)
 ┌──────────────────────┐   ┌──────────────────┐   ┌────────────────────────┐
 │ worker/              │──▶│ tabela `videos`  │◀──│ web/                   │
 │ 1. produtos em alta  │   │ bucket `videos`  │   │ assistir · compartilhar│
-│ 2. roteiro + legenda │   └──────────────────┘   │ copiar legenda · baixar│
-│ 3. narração (voz)    │                          │ "já postei"            │
+│ 2. tema + descrição  │   └──────────────────┘   │ copiar descrição·baixar│
+│ 3. música temática   │                          │ "já postei"            │
 │ 4. vídeo (ffmpeg)    │                          └────────────────────────┘
 └──────────────────────┘
 ```
@@ -18,15 +18,20 @@ GitHub Actions (4x/dia)          Supabase                 Vercel (painel)
 **Por que você ainda posta manualmente?** A Shopee não tem API oficial para
 publicar vídeos. Robôs que imitam o app podem levar ao bloqueio da conta de
 afiliado. Então o robô faz todo o trabalho pesado e você só toca em
-**Compartilhar na Shopee** no celular. A legenda com o link já vai copiada.
+**Compartilhar na Shopee** no celular. A descrição com o link já vai copiada.
 
 ## Como é o vídeo
 
-- 1080×1920, cerca de 20 segundos, narração `pt-BR-FranciscaNeural` (feminina e suave)
-- Selo "ACHADINHO SHOPEE", nome do produto, foto com zoom lento sobre fundo desfocado
-- Etiqueta de desconto, preço em destaque, legendas sincronizadas com a voz
-- "LINK NO VÍDEO" piscando no final
-- Música de fundo opcional: coloque arquivos `.mp3` **livres de direitos** em `worker/assets/music/`
+- 1080×1920, 10 segundos, **sem texto na tela** (preço, link e hashtags vão na descrição)
+- O robô descobre o **tema** pelo nome do produto (Natal, cozinha, beleza, casa,
+  tecnologia, infantil, pet, fitness, moda) e monta o cenário nas cores do tema,
+  com luzinhas desfocadas
+- 3 cenas com a foto do produto, com transições suaves: produto inteiro → close no detalhe → fechamento
+- **Trilha temática original**, composta pelo próprio robô a cada vídeo (sinos e
+  guizos no Natal, batida eletrônica em tecnologia...), sem risco de direitos autorais
+- Prefere outras músicas? Coloque `.mp3` **livres de direitos** em
+  `worker/assets/music/<tema>/` (ex.: `worker/assets/music/natal/`) ou direto em
+  `worker/assets/music/` para todos os temas. O robô passa a sortear entre elas.
 
 ## Configuração (uma vez só)
 
@@ -47,9 +52,8 @@ Em **Settings → Secrets and variables → Actions** do repositório, crie os *
 
 Sem as chaves da Shopee, o robô roda em **modo demonstração** com produtos de exemplo.
 
-Variáveis opcionais (aba *Variables*):
+Variável opcional (aba *Variables*):
 - `PALAVRAS_CHAVE`: focar em nichos, ex.: `cozinha,maquiagem,organização`
-- `VOZ`: outra voz, ex.: `pt-BR-ThalitaNeural`
 
 O agendamento só roda na branch padrão (`main`). Os horários ficam em
 `.github/workflows/gerar-videos.yml` (hoje: 08:47, 11:47, 17:47 e 20:47, horário
@@ -79,7 +83,8 @@ vendem e pagam mais comissão, já com o **seu link de afiliado**.
 
 ```bash
 cd worker && npm install
-npm run gerar:teste          # gera em worker/saida/ sem Supabase (áudio mudo)
+npm run gerar:teste          # gera em worker/saida/ sem Supabase
+npm run gerar:teste -- --imagem foto.jpg   # testa com uma foto sua
 npm run gerar                # gera de verdade (precisa das variáveis acima)
 
 cd web && npm install
@@ -90,6 +95,7 @@ Precisa de Node 20+ e `ffmpeg` instalado.
 
 ## Personalizar
 
-- **Frases do roteiro:** `worker/src/roteiro.js` (ganchos, chamadas e hashtags)
-- **Visual do vídeo:** `worker/src/ffmpeg.js` (cores, posições, fontes)
+- **Descrição do post:** `worker/src/descricao.js` (aberturas, chamadas e hashtags)
+- **Temas, cores e estilo da música:** `worker/src/tema.js`
+- **Cenas e transições:** `worker/src/ffmpeg.js` (lista `CENAS`)
 - **Critério de "em alta":** `worker/src/shopee.js`, função `score`, e `NOTA_MINIMA` (padrão 4.5)

@@ -22,7 +22,7 @@ export async function produtosRecentes() {
   return new Set(data.map((r) => r.item_id));
 }
 
-export async function salvarVideo({ arquivo, produto, roteiro, duracao }) {
+export async function salvarVideo({ arquivo, produto, titulo, legenda, tema, duracao }) {
   const db = cliente();
   const caminho = `${new Date().toISOString().slice(0, 10)}/${produto.itemId}-${Date.now()}.mp4`;
 
@@ -36,7 +36,7 @@ export async function salvarVideo({ arquivo, produto, roteiro, duracao }) {
     .insert({
       item_id: produto.itemId,
       nome_produto: produto.nome,
-      titulo: roteiro.titulo,
+      titulo,
       preco: produto.preco,
       desconto: produto.desconto,
       vendas: produto.vendas,
@@ -44,8 +44,8 @@ export async function salvarVideo({ arquivo, produto, roteiro, duracao }) {
       comissao: produto.comissao,
       imagem_url: produto.imagens[0] || null,
       link_afiliado: produto.link,
-      roteiro: roteiro.frases.join(" "),
-      legenda: roteiro.legenda,
+      tema,
+      legenda,
       video_path: caminho,
       duracao,
     })

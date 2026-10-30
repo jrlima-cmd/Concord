@@ -37,4 +37,3 @@ jobs:
           SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
           SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
           PALAVRAS_CHAVE: ${{ vars.PALAVRAS_CHAVE }}
-          VOZ: ${{ vars.VOZ }}
