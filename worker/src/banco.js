@@ -22,14 +22,19 @@ export async function produtosRecentes() {
   return new Set(data.map((r) => r.item_id));
 }
 
-export async function salvarVideo({ arquivo, produto, titulo, legenda, tema, duracao }) {
+export async function salvarVideo({ arquivo, capa, produto, titulo, legenda, tema, duracao }) {
   const db = cliente();
   const caminho = `${new Date().toISOString().slice(0, 10)}/${produto.itemId}-${Date.now()}.mp4`;
 
-  const { error: errUpload } = await db.storage
-    .from(BUCKET)
-    .upload(caminho, await fs.readFile(arquivo), { contentType: "video/mp4" });
-  if (errUpload) throw errUpload;
+  const enviar = async (destino, origem, contentType) => {
+    const { error } = await db.storage
+      .from(BUCKET)
+      .upload(destino, await fs.readFile(origem), { contentType });
+    if (error) throw error;
+  };
+  await enviar(caminho, arquivo, "video/mp4");
+  // Capa com o mesmo nome do vídeo, para o painel não mostrar tela preta
+  await enviar(caminho.replace(/\.mp4$/, ".jpg"), capa, "image/jpeg");
 
   const { data, error } = await db
     .from("videos")

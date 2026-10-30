@@ -5,7 +5,7 @@ import { mudarStatus } from "./actions";
 
 const brl = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function CartaoVideo({ video, url }) {
+export default function CartaoVideo({ video, url, capa }) {
   const [arquivo, setArquivo] = useState(null);
   const [aviso, setAviso] = useState("");
   const [pendente, startTransition] = useTransition();
@@ -60,7 +60,7 @@ export default function CartaoVideo({ video, url }) {
   return (
     <article className={`video ${pendente ? "carregando" : ""}`}>
       {url ? (
-        <video src={url} controls playsInline preload="metadata" poster={video.imagem_url || undefined} />
+        <video src={url} controls playsInline preload="metadata" poster={capa || video.imagem_url || undefined} />
       ) : (
         <div className="sem-video">Vídeo indisponível</div>
       )}

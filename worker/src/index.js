@@ -11,7 +11,7 @@ import path from "node:path";
 import { buscarEmAlta, modoDemo } from "./shopee.js";
 import { gerarDescricao, brl } from "./descricao.js";
 import { detectarTema } from "./tema.js";
-import { renderizar, imagemDemo } from "./ffmpeg.js";
+import { renderizar, imagemDemo, run } from "./ffmpeg.js";
 import { produtosRecentes, salvarVideo } from "./banco.js";
 
 const args = process.argv.slice(2);
@@ -44,6 +44,8 @@ async function gerarUm(produto) {
     const saida = path.join(tmp, "video.mp4");
     const { duracao, musicaGerada } = await renderizar({ imagem, tema, saida, tmp });
     console.log(`  Trilha: ${musicaGerada ? "composta pelo robô" : "da pasta assets/music"}`);
+    const capa = path.join(tmp, "capa.jpg");
+    await run(["-ss", "2", "-i", saida, "-frames:v", "1", "-vf", "scale=540:-2", "-q:v", "4", capa]);
 
     if (semUpload) {
       const pasta = path.resolve("saida");
@@ -51,9 +53,10 @@ async function gerarUm(produto) {
       const destino = path.join(pasta, `${produto.itemId}.mp4`);
       await fs.copyFile(saida, destino);
       await fs.writeFile(destino.replace(/\.mp4$/, ".txt"), legenda);
+      await fs.copyFile(capa, destino.replace(/\.mp4$/, ".jpg"));
       console.log(`  ✓ Salvo em ${destino} (${duracao.toFixed(1)}s)`);
     } else {
-      const id = await salvarVideo({ arquivo: saida, produto, titulo, legenda, tema, duracao });
+      const id = await salvarVideo({ arquivo: saida, capa, produto, titulo, legenda, tema, duracao });
       console.log(`  ✓ Na fila do painel (id ${id}, ${duracao.toFixed(1)}s)`);
     }
   } finally {

@@ -34,10 +34,11 @@ export default async function Painel({ searchParams }) {
 
   // Links temporários (1h) para assistir e baixar os vídeos do bucket privado
   const urls = {};
+  const capa = (v) => v.video_path.replace(/\.mp4$/, ".jpg");
   if (videos.length) {
-    const caminhos = videos.map((v) => v.video_path);
+    const caminhos = videos.flatMap((v) => [v.video_path, capa(v)]);
     const { data } = await db.storage.from("videos").createSignedUrls(caminhos, 3600);
-    for (const s of data || []) urls[s.path] = s.signedUrl;
+    for (const s of data || []) if (s.signedUrl) urls[s.path] = s.signedUrl;
   }
 
   return (
@@ -71,7 +72,7 @@ export default async function Painel({ searchParams }) {
       ) : (
         <section className="grade">
           {videos.map((v) => (
-            <CartaoVideo key={v.id} video={v} url={urls[v.video_path]} />
+            <CartaoVideo key={v.id} video={v} url={urls[v.video_path]} capa={urls[capa(v)]} />
           ))}
         </section>
       )}
