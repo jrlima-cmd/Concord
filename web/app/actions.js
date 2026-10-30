@@ -44,8 +44,10 @@ export async function mudarStatus(id, status) {
 }
 
 // Dispara o robô no GitHub Actions na hora, sem esperar o próximo horário.
-export async function gerarAgora() {
+// Com `item` no formulário, gera o vídeo daquele produto do ranking.
+export async function gerarAgora(_estado, form) {
   await exigirLogin();
+  const item = String(form?.get("item") || "");
   const repo = process.env.GITHUB_REPO;
   const token = process.env.GITHUB_TOKEN;
   if (!repo || !token) {
@@ -59,7 +61,7 @@ export async function gerarAgora() {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
       },
-      body: JSON.stringify({ ref: process.env.GITHUB_BRANCH || "main", inputs: { quantidade: "1" } }),
+      body: JSON.stringify({ ref: process.env.GITHUB_BRANCH || "main", inputs: { quantidade: "1", item } }),
     },
   );
   if (!res.ok) return { erro: `GitHub respondeu ${res.status}. Confira o token.` };

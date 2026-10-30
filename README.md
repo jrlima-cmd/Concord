@@ -33,6 +33,13 @@ afiliado. Então o robô faz todo o trabalho pesado e você só toca em
   `worker/assets/music/<tema>/` (ex.: `worker/assets/music/natal/`) ou direto em
   `worker/assets/music/` para todos os temas. O robô passa a sortear entre elas.
 
+## Aba "Em alta"
+
+A cada execução, o robô salva no painel o ranking dos produtos em alta que encontrou
+(até 30), com preço, desconto, vendas, nota, comissão e pontuação. Os que ainda não
+viraram vídeo são os próximos, de cima para baixo. O botão **Gerar vídeo deste**
+faz o robô gerar na hora o vídeo daquele produto (precisa de `GITHUB_TOKEN` na Vercel).
+
 ## Descrição e prompt de IA
 
 Cada vídeo chega no painel com:

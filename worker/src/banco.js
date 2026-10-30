@@ -22,6 +22,33 @@ export async function produtosRecentes() {
   return new Set(data.map((r) => r.item_id));
 }
 
+// Guarda o ranking da última busca para a aba "Em alta" do painel.
+export async function salvarRanking(produtos, usados, temaDe) {
+  const db = cliente();
+  const agora = new Date().toISOString();
+  const linhas = produtos.slice(0, 30).map((p, i) => ({
+    posicao: i + 1,
+    item_id: p.itemId,
+    nome: p.nome,
+    preco: p.preco,
+    desconto: p.desconto,
+    vendas: p.vendas,
+    nota: p.nota,
+    comissao: p.comissao,
+    imagem_url: p.imagens[0] || null,
+    link_afiliado: p.link,
+    tema: temaDe(p),
+    pontuacao: Number(p.pontuacao.toFixed(2)),
+    ja_usado: usados.has(p.itemId),
+    atualizado_em: agora,
+  }));
+  const { error } = await db.from("em_alta").upsert(linhas, { onConflict: "item_id" });
+  if (error) throw error;
+  // Remove quem saiu do ranking
+  const { error: errLimpa } = await db.from("em_alta").delete().lt("atualizado_em", agora);
+  if (errLimpa) throw errLimpa;
+}
+
 export async function salvarVideo({ arquivo, capa, produto, titulo, legenda, prompt, tema, duracao }) {
   const db = cliente();
   const caminho = `${new Date().toISOString().slice(0, 10)}/${produto.itemId}-${Date.now()}.mp4`;

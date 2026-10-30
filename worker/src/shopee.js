@@ -69,10 +69,11 @@ export function modoDemo() {
   return !process.env.SHOPEE_APP_ID || !process.env.SHOPEE_SECRET;
 }
 
-// Retorna produtos em alta, do melhor para o pior, já sem os que foram usados.
-export async function buscarEmAlta(jaUsados = new Set()) {
+// Retorna o ranking de produtos em alta, do melhor para o pior, cada um
+// com sua `pontuacao`. Quem decide pular os já usados é quem chama.
+export async function buscarEmAlta() {
   if (modoDemo()) {
-    return DEMO.filter((p) => !jaUsados.has(p.itemId));
+    return DEMO.map((p) => ({ ...p, pontuacao: score(p) })).sort((a, b) => b.pontuacao - a.pontuacao);
   }
 
   const palavras = (process.env.PALAVRAS_CHAVE || "")
@@ -87,7 +88,7 @@ export async function buscarEmAlta(jaUsados = new Set()) {
       const nodes = await chamarApi({ page: 1, limit: 50, sortType, keyword });
       for (const n of nodes) {
         const p = normalizar(n);
-        if (!jaUsados.has(p.itemId) && p.imagens[0]) todos.set(p.itemId, p);
+        if (p.imagens[0]) todos.set(p.itemId, p);
       }
     }
   }
@@ -96,7 +97,8 @@ export async function buscarEmAlta(jaUsados = new Set()) {
   // Pontuação: vendas pesam mais, comissão desempata.
   return [...todos.values()]
     .filter((p) => p.nota >= notaMin)
-    .sort((a, b) => score(b) - score(a));
+    .map((p) => ({ ...p, pontuacao: score(p) }))
+    .sort((a, b) => b.pontuacao - a.pontuacao);
 }
 
 function score(p) {

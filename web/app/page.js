@@ -3,14 +3,21 @@ import { supabase } from "@/lib/supabase";
 import { sair } from "./actions";
 import CartaoVideo from "./CartaoVideo";
 import BotaoGerar from "./BotaoGerar";
+import EmAlta from "./EmAlta";
 
 export const dynamic = "force-dynamic";
 
 const ABAS = [
   { id: "pendente", nome: "Para postar" },
+  { id: "emalta", nome: "Em alta" },
   { id: "postado", nome: "Postados" },
   { id: "descartado", nome: "Descartados" },
 ];
+
+const contar = (db, a) =>
+  a.id === "emalta"
+    ? db.from("em_alta").select("item_id", { count: "exact", head: true })
+    : db.from("videos").select("id", { count: "exact", head: true }).eq("status", a.id);
 
 export default async function Painel({ searchParams }) {
   const pedida = (await searchParams).aba;
@@ -18,10 +25,10 @@ export default async function Painel({ searchParams }) {
   const db = supabase();
 
   const [{ data: videos, error }, contagens] = await Promise.all([
-    db.from("videos").select("*").eq("status", aba).order("created_at", { ascending: false }).limit(40),
-    Promise.all(
-      ABAS.map((a) => db.from("videos").select("id", { count: "exact", head: true }).eq("status", a.id)),
-    ),
+    aba === "emalta"
+      ? db.from("em_alta").select("*").order("posicao")
+      : db.from("videos").select("*").eq("status", aba).order("created_at", { ascending: false }).limit(40),
+    Promise.all(ABAS.map((a) => contar(db, a))),
   ]);
 
   if (error) {
@@ -35,7 +42,7 @@ export default async function Painel({ searchParams }) {
   // Links temporários (1h) para assistir e baixar os vídeos do bucket privado
   const urls = {};
   const capa = (v) => v.video_path.replace(/\.mp4$/, ".jpg");
-  if (videos.length) {
+  if (aba !== "emalta" && videos.length) {
     const caminhos = videos.flatMap((v) => [v.video_path, capa(v)]);
     const { data } = await db.storage.from("videos").createSignedUrls(caminhos, 3600);
     for (const s of data || []) if (s.signedUrl) urls[s.path] = s.signedUrl;
@@ -63,7 +70,9 @@ export default async function Painel({ searchParams }) {
         ))}
       </nav>
 
-      {videos.length === 0 ? (
+      {aba === "emalta" ? (
+        <EmAlta produtos={videos} />
+      ) : videos.length === 0 ? (
         <p className="vazio">
           {aba === "pendente"
             ? "Nenhum vídeo esperando. O robô gera os próximos automaticamente. 😉"

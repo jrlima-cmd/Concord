@@ -13,7 +13,7 @@ import { gerarDescricao, brl } from "./descricao.js";
 import { detectarTema } from "./tema.js";
 import { gerarPrompt } from "./prompt.js";
 import { renderizar, imagemDemo, run } from "./ffmpeg.js";
-import { produtosRecentes, salvarVideo } from "./banco.js";
+import { produtosRecentes, salvarRanking, salvarVideo } from "./banco.js";
 
 const args = process.argv.slice(2);
 const semUpload = args.includes("--sem-upload");
@@ -23,6 +23,7 @@ const valor = (nome) => {
 };
 const quantidade = Number(valor("--quantidade") || 1);
 const imagemTeste = valor("--imagem");
+const itemEscolhido = valor("--item"); // gerar de um produto específico do ranking
 
 async function baixarImagem(url, arquivo) {
   const res = await fetch(url);
@@ -72,9 +73,17 @@ async function main() {
     console.log("⚠ Sem SHOPEE_APP_ID/SHOPEE_SECRET: usando produtos de demonstração.");
   }
   const usados = semUpload ? new Set() : await produtosRecentes();
-  const candidatos = await buscarEmAlta(usados);
+  const ranking = await buscarEmAlta();
+  console.log(`Ranking: ${ranking.length} produtos em alta encontrados.`);
+  if (!semUpload) await salvarRanking(ranking, usados, (p) => detectarTema(p.nome));
+
+  const candidatos = itemEscolhido
+    ? ranking.filter((p) => p.itemId === itemEscolhido)
+    : ranking.filter((p) => !usados.has(p.itemId));
   if (!candidatos.length) {
-    console.log("Nenhum produto novo em alta encontrado.");
+    console.log(itemEscolhido
+      ? `O produto ${itemEscolhido} não está mais no ranking.`
+      : "Nenhum produto novo em alta encontrado.");
     return;
   }
 

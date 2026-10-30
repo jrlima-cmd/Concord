@@ -9,6 +9,9 @@ on:
       quantidade:
         description: "Quantos vídeos gerar agora"
         default: "1"
+      item:
+        description: "ID de um produto do ranking (opcional)"
+        default: ""
 
 concurrency: gerar-videos
 
@@ -30,8 +33,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - run: npm ci
       - name: Gerar vídeo
-        run: npm run gerar -- --quantidade "${{ inputs.quantidade || '1' }}"
+        run: npm run gerar -- --quantidade "$QUANTIDADE" ${ITEM:+--item "$ITEM"}
         env:
+          QUANTIDADE: ${{ inputs.quantidade || '1' }}
+          ITEM: ${{ inputs.item }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
