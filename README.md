@@ -89,7 +89,7 @@ de Brasília). Para testar na hora: aba **Actions → Gerar vídeos → Run work
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
 | `DASHBOARD_PASSWORD` | senha para entrar no painel |
-| `GITHUB_REPO` | *(opcional)* `jrlima-cmd/Concord`, para o botão "Gerar agora" |
+| `GITHUB_REPO` | *(opcional)* `jrlima-cmd/concord-achadinhos`, para o botão "Gerar agora" |
 | `GITHUB_TOKEN` | *(opcional)* token *fine-grained* com permissão **Actions: write** neste repositório |
 | `GITHUB_BRANCH` | *(opcional)* branch do workflow, padrão `main` |
 
