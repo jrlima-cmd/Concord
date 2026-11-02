@@ -428,6 +428,16 @@ async function handleValidate(req: Request): Promise<Response> {
     return json(payload);
 }
 
+/**
+ * Sinal de vida: faz uma consulta mínima ao banco (sem devolver dados) para que o Supabase
+ * não pause o projeto por inatividade. Chamado uma vez por dia pelo cron da Vercel.
+ */
+async function handleHealth(): Promise<Response> {
+    const { error } = await db.from('tickets').select('id', { head: true, count: 'exact' }).limit(1);
+    if (error) throw error;
+    return json({ ok: true, at: new Date().toISOString() });
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -442,6 +452,7 @@ Deno.serve(async (req) => {
             return json({ error: 'Servidor ainda não configurado: defina STRIPE_SECRET_KEY, STAFF_PASSWORD e SESSION_SECRET.' }, 503);
         }
 
+        if (req.method === 'GET' && path === '/api/health') return await handleHealth();
         if (req.method === 'POST' && path === '/api/webhook') return await handleWebhook(req);
         if (req.method === 'GET' && path === '/api/config') {
             return json({
