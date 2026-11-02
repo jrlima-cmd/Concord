@@ -12,7 +12,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-tentar]').forEach((botao) => {
         botao.addEventListener('click', () => {
             const de = new URLSearchParams(window.location.search).get('de') || '/';
-            window.location.href = de.startsWith('/') && !de.startsWith('//') && !de.startsWith('/\\') ? de : '/';
+            // O navegador é quem interpreta o endereço; só seguimos se continuar no mesmo site
+            let destino = '/';
+            try {
+                const url = new URL(de, window.location.origin);
+                if (url.origin === window.location.origin) destino = url.pathname + url.search + url.hash;
+            } catch {
+                // Endereço inválido: volta para o início
+            }
+            window.location.href = destino;
         });
     });
 
