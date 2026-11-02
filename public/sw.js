@@ -15,6 +15,10 @@ const APP_SHELL = [
     'vendor/supabase.js',
     'icons/icon.svg',
     'icons/icon-192.png',
+    // Página "Serviço indisponível": o app vai para ela quando o servidor não responde
+    '503',
+    'erro.css',
+    'erro.js',
 ];
 
 self.addEventListener('install', (event) => {
@@ -51,8 +55,10 @@ async function networkFirst(request) {
     fromNetwork.catch(() => {}); // A falha é tratada abaixo; evita aviso de rejeição não tratada
 
     const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS, null));
+    // Página sem cópia e sem internet: mostra a 503 (servir o app num endereço qualquer o faria
+    // redirecionar para a 503 de novo, sem fim)
     const cached = () => cache.match(key)
-        .then((match) => match || (request.mode === 'navigate' ? cache.match('./') : undefined));
+        .then((match) => match || (request.mode === 'navigate' ? cache.match('503') : undefined));
 
     try {
         const response = await Promise.race([fromNetwork, timeout]);
