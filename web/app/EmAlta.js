@@ -1,5 +1,8 @@
 import BotaoGerar from "./BotaoGerar";
 
+// Só abre links https (evita links "javascript:" vindos de dados externos)
+const linkSeguro = (url) => (/^https:\/\//i.test(url || "") ? url : undefined);
+
 const brl = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 // Ranking da última busca do robô: os que ainda não viraram vídeo são os
@@ -33,7 +36,7 @@ export default function EmAlta({ produtos }) {
               <span className="sem-foto" aria-hidden="true">🛍️</span>
             )}
             <div className="dados">
-              <a href={p.link_afiliado} target="_blank" rel="noreferrer" className="nome">
+              <a href={linkSeguro(p.link_afiliado)} target="_blank" rel="noreferrer noopener" className="nome">
                 {p.nome}
               </a>
               <p className="meta">

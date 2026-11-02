@@ -126,6 +126,22 @@ projeto por inatividade. Se o banco ou o site não responderem, a execução fic
 vermelha e o GitHub manda um e-mail de aviso. Dá para rodar na hora em
 **Actions → Verificar site → Run workflow**.
 
+## Segurança
+
+- **Login:** senha comparada em tempo constante; 5 erros por endereço em 15 min
+  (ou 50 no total) bloqueiam novas tentativas. A sessão é um cookie assinado
+  (HMAC) que vale 30 dias; trocar `DASHBOARD_PASSWORD` derruba todas as sessões.
+- **Painel:** todas as páginas e ações do servidor exigem sessão válida; os dados
+  enviados são validados.
+- **Cabeçalhos:** HSTS, `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'`,
+  `nosniff`, `Referrer-Policy` e `Permissions-Policy`.
+- **Banco:** RLS ligado sem políticas e sem permissões para os papéis públicos;
+  só o servidor (chave secreta) lê e grava. Armazenamento de vídeos privado.
+- **Teste automático:** o workflow **Teste de segurança** roda toda segunda e
+  quando você quiser (Actions → Teste de segurança → Run workflow). Ele testa
+  portas, HTTPS, cabeçalhos, acesso sem senha, arquivos sensíveis, a API pública
+  do banco e o bloqueio de senha.
+
 ## Rodar no computador
 
 ```bash

@@ -15,6 +15,10 @@ on:
 
 concurrency: gerar-videos
 
+# O robô só precisa ler o código; nada de escrever no repositório.
+permissions:
+  contents: read
+
 jobs:
   gerar:
     runs-on: ubuntu-latest

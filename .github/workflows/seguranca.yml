@@ -1,0 +1,179 @@
+name: Teste de segurança
+
+# Ataca o próprio painel como um invasor faria e confere se tudo está fechado:
+# portas abertas, HTTPS, cabeçalhos de segurança, acesso sem senha, arquivos
+# sensíveis, banco de dados pela API pública e bloqueio de quem tenta adivinhar
+# a senha. Se algo falhar, o GitHub manda e-mail de aviso.
+on:
+  schedule:
+    - cron: "37 10 * * 1" # segunda-feira, 07:37 no horário de Brasília
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://concord-sable.vercel.app' }}
+      SUPABASE_REF: psskkscuzdzrlxhdtcmr
+      # Chave pública do Supabase (feita para ficar exposta): é o que um invasor teria.
+      SUPABASE_PUBLICA: sb_publishable_buHEPC3mkPgA9JaXkJvnrQ_QuyuoUvI
+    steps:
+      - name: Testar
+        shell: python3 {0}
+        run: |
+          import os, socket, json, uuid, urllib.request, urllib.error
+          from concurrent.futures import ThreadPoolExecutor
+          from html.parser import HTMLParser
+
+          SITE = os.environ["SITE_URL"].rstrip("/")
+          HOST = SITE.split("//", 1)[1]
+          REF = os.environ["SUPABASE_REF"]
+          SUPA = f"https://{REF}.supabase.co"
+          CHAVE = os.environ["SUPABASE_PUBLICA"]
+
+          relatorio, falhas = [], []
+          def ok(m): relatorio.append(f"- ✅ {m}")
+          def aviso(m): relatorio.append(f"- ⚠️ {m}")
+          def falha(m): relatorio.append(f"- ❌ {m}"); falhas.append(m)
+          def secao(t): relatorio.append(f"\n### {t}")
+
+          class SemRedirecionar(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *a, **k): return None
+          navegador = urllib.request.build_opener(SemRedirecionar)
+
+          def pedir(url, metodo="GET", dados=None, cab=None):
+              r = urllib.request.Request(url, data=dados, method=metodo, headers=cab or {})
+              try:
+                  resp = navegador.open(r, timeout=25)
+                  return resp.status, {k.lower(): v for k, v in resp.headers.items()}, resp.read().decode("utf-8", "replace")
+              except urllib.error.HTTPError as e:
+                  return e.code, {k.lower(): v for k, v in e.headers.items()}, e.read().decode("utf-8", "replace")
+
+          # 1. Portas -------------------------------------------------------
+          secao("Portas abertas")
+          PORTAS = [21, 22, 23, 25, 53, 110, 143, 445, 1433, 2375, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 9200, 11211, 27017]
+          def aberta(alvo):
+              h, p = alvo
+              try:
+                  socket.create_connection((h, p), timeout=3).close()
+                  return True
+              except OSError:
+                  return False
+          for h, dono in [(HOST, "Vercel"), (f"{REF}.supabase.co", "Supabase (API)")]:
+              with ThreadPoolExecutor(20) as ex:
+                  res = list(ex.map(aberta, [(h, p) for p in PORTAS]))
+              abertas = [p for p, a in zip(PORTAS, res) if a]
+              if abertas:
+                  aviso(f"{h}: portas {abertas} respondem na infraestrutura da {dono} (não são servidores seus; nenhum serviço do Concord roda nelas)")
+              else:
+                  ok(f"{h}: só HTTP/HTTPS abertas (testadas {len(PORTAS)} portas de serviços comuns)")
+          if aberta((f"db.{REF}.supabase.co", 5432)):
+              aviso(f"db.{REF}.supabase.co:5432 (Postgres) aceita conexões, protegido pela senha do banco. Dá para restringir por IP em Supabase → Database → Network Restrictions")
+          else:
+              ok("Banco Postgres não aceita conexão direta de fora")
+
+          # 2. HTTPS e cabeçalhos ---------------------------------------------
+          secao("HTTPS e cabeçalhos de segurança")
+          st, cab, _ = pedir(f"http://{HOST}/login")
+          if st in (301, 302, 307, 308) and cab.get("location", "").startswith("https://"):
+              ok("HTTP redireciona para HTTPS")
+          else:
+              falha(f"HTTP não redireciona para HTTPS (status {st})")
+          st, cab, corpo = pedir(f"{SITE}/login")
+          if st != 200:
+              falha(f"Página de login respondeu {st}")
+          esperados = {
+              "strict-transport-security": "HSTS (força HTTPS)",
+              "x-frame-options": "proteção contra o site ser embutido em páginas falsas",
+              "x-content-type-options": "nosniff",
+              "referrer-policy": "Referrer-Policy",
+              "content-security-policy": "Content-Security-Policy",
+          }
+          for k, nome in esperados.items():
+              (ok if k in cab else falha)(f"Cabeçalho {nome}" + ("" if k in cab else " ausente"))
+          (falha if "x-powered-by" in cab else ok)("Servidor não revela a tecnologia usada (sem X-Powered-By)")
+
+          # 3. Acesso sem senha ------------------------------------------------
+          secao("Acesso ao painel sem senha")
+          tentativas = {
+              "/": None,
+              "/?aba=emalta": None,
+              "/?aba=postado": None,
+              "/ (cookie falsificado)": "concord_sessao=9999999999.0000000000000000000000000000000000000000000000000000000000000000",
+              "/ (cookie no formato antigo)": "concord_sessao=" + "a" * 64,
+          }
+          for rota, biscoito in tentativas.items():
+              caminho = rota.split(" ")[0]
+              st, cab, corpo = pedir(f"{SITE}{caminho}", cab={"Cookie": biscoito} if biscoito else {})
+              if st in (302, 303, 307, 308) and "/login" in cab.get("location", ""):
+                  ok(f"{rota} → bloqueado e mandado para o login")
+              else:
+                  falha(f"{rota} respondeu {st} sem pedir senha")
+
+          secao("Arquivos sensíveis")
+          for caminho in ["/.env", "/.env.local", "/.git/config", "/.vercel/project.json", "/package.json", "/next.config.mjs", "/lib/auth.js"]:
+              st, _, corpo = pedir(f"{SITE}{caminho}")
+              vazou = st == 200 and any(s in corpo for s in ("SUPABASE", "DASHBOARD_PASSWORD", "[core]", "dependencies", "HMAC"))
+              (falha if vazou else ok)(f"{caminho} " + ("ESTÁ EXPOSTO" if vazou else f"não acessível ({st})"))
+
+          # 4. Banco pela API pública ------------------------------------------
+          secao("Banco de dados pela API pública (com a chave que qualquer um teria)")
+          h = {"apikey": CHAVE, "Authorization": f"Bearer {CHAVE}", "Content-Type": "application/json"}
+          for tabela in ["videos", "em_alta", "login_tentativas"]:
+              st, _, corpo = pedir(f"{SUPA}/rest/v1/{tabela}?select=*&limit=1", cab=h)
+              vazou = st == 200 and corpo.strip() not in ("", "[]")
+              (falha if vazou else ok)(f"Ler '{tabela}': " + ("DADOS EXPOSTOS" if vazou else f"negado ({st})"))
+              st, _, _ = pedir(f"{SUPA}/rest/v1/{tabela}", "POST", b"{}", h)
+              (falha if st in (200, 201) else ok)(f"Gravar em '{tabela}': " + ("PERMITIDO" if st in (200, 201) else f"negado ({st})"))
+          st, _, corpo = pedir(f"{SUPA}/storage/v1/object/list/videos", "POST", json.dumps({"prefix": "", "limit": 5}).encode(), h)
+          vazou = st == 200 and corpo.strip() not in ("", "[]")
+          (falha if vazou else ok)("Listar vídeos guardados: " + ("ARQUIVOS EXPOSTOS" if vazou else f"negado ({st})"))
+          st, _, _ = pedir(f"{SUPA}/storage/v1/object/videos/teste-invasor.txt", "POST", b"x", {**h, "Content-Type": "text/plain"})
+          (falha if st in (200, 201) else ok)("Enviar arquivo para o armazenamento: " + ("PERMITIDO" if st in (200, 201) else f"negado ({st})"))
+          email = f"teste-{uuid.uuid4().hex[:8]}@example.com"
+          st, _, _ = pedir(f"{SUPA}/auth/v1/signup", "POST", json.dumps({"email": email, "password": uuid.uuid4().hex}).encode(), h)
+          if st == 200:
+              aviso("Cadastro de usuários do Supabase está aberto. Hoje não dá acesso a nada, mas dá para desligar em Supabase → Authentication → Sign In / Providers → 'Allow new users to sign up'")
+          else:
+              ok(f"Cadastro de usuários no Supabase fechado ({st})")
+
+          # 5. Adivinhar a senha -----------------------------------------------
+          secao("Proteção contra quem tenta adivinhar a senha")
+          class Campos(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.campos = []
+              def handle_starttag(self, tag, attrs):
+                  a = dict(attrs)
+                  if tag == "input" and a.get("type") == "hidden" and a.get("name"):
+                      self.campos.append((a["name"], a.get("value") or ""))
+          st, cab, corpo = pedir(f"{SITE}/login")
+          leitor = Campos(); leitor.feed(corpo)
+          if not leitor.campos:
+              aviso("Não deu para simular o login (formulário mudou); teste pulado")
+          else:
+              bloqueou = False
+              for i in range(7):
+                  fronteira = uuid.uuid4().hex
+                  partes = leitor.campos + [("senha", f"senha-errada-{uuid.uuid4().hex[:6]}")]
+                  dados = "".join(f'--{fronteira}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n' for n, v in partes)
+                  dados += f"--{fronteira}--\r\n"
+                  st, _, corpo = pedir(f"{SITE}/login", "POST", dados.encode(),
+                                       {"Content-Type": f"multipart/form-data; boundary={fronteira}", "Origin": SITE})
+                  if "Muitas tentativas" in corpo:
+                      bloqueou = True
+                      ok(f"Depois de {i} senhas erradas, o login bloqueou novas tentativas por 15 minutos")
+                      break
+              if not bloqueou:
+                  falha("O login não bloqueou depois de 7 senhas erradas seguidas")
+
+          # Resultado ----------------------------------------------------------
+          titulo = "## 🔒 Teste de segurança: " + ("tudo protegido ✅" if not falhas else f"{len(falhas)} problema(s) ❌")
+          texto = titulo + "\n" + "\n".join(relatorio) + "\n"
+          print(texto)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(texto)
+          if falhas:
+              raise SystemExit(1)
