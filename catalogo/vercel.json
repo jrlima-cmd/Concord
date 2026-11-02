@@ -41,5 +41,10 @@
       "path": "/api/manter-ativo",
       "schedule": "17 9 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/manter-ativo.js": {
+      "includeFiles": "*.html"
+    }
+  }
 }

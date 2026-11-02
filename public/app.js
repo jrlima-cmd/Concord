@@ -763,7 +763,9 @@ async function init() {
     try {
         state.config = await api('/api/config');
     } catch {
-        toast('Não foi possível carregar as configurações do evento.', 'error');
+        // Sem o servidor o app não funciona: mostra a página 503, que tenta de novo voltando para cá
+        window.location.replace(`/503?de=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+        return;
     }
     $('event-name').textContent = state.config.eventName;
     $('quantidade').max = state.config.maxTicketsPerOrder;

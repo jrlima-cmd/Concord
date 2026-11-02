@@ -1,0 +1,123 @@
+/* Páginas de erro do SVI: mesmo tema escuro índigo do app, sem depender do styles.css */
+:root {
+    --fundo: #0b0f17;
+    --superficie: rgba(22, 31, 48, 0.75);
+    --texto: #f8fafc;
+    --texto-2: #94a3b8;
+    --borda: rgba(255, 255, 255, 0.1);
+    --indigo: #6366f1;
+    --indigo-claro: #818cf8;
+    --gradiente: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color-scheme: dark;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    min-height: 100vh;
+    background-color: var(--fundo);
+    background-image:
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.16) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+    background-attachment: fixed;
+    color: var(--texto);
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+}
+
+.erro {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 32px 16px;
+}
+
+.marca {
+    color: var(--texto);
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+}
+
+.cartao {
+    width: 100%;
+    max-width: 520px;
+    padding: 40px 32px;
+    text-align: center;
+    background: var(--superficie);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--borda);
+    border-radius: 24px;
+    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.4);
+}
+
+.codigo {
+    font-size: clamp(72px, 22vw, 112px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 55%, #10b981 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.rotulo {
+    margin-top: 14px;
+    color: var(--indigo-claro);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+h1 { margin-top: 6px; font-size: 26px; line-height: 1.25; letter-spacing: -0.02em; text-wrap: balance; }
+.texto { margin-top: 12px; font-size: 16px; }
+.dica { margin-top: 8px; color: var(--texto-2); font-size: 14px; }
+
+.ref { margin-top: 16px; color: var(--texto-2); font-size: 12px; overflow-wrap: anywhere; }
+.ref code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; color: var(--texto); }
+
+.acoes { margin-top: 28px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    color: #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn-primario { background: var(--gradiente); box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35); }
+.btn-primario:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5); }
+.btn-secundario { background: rgba(255, 255, 255, 0.08); border-color: var(--borda); }
+.btn-secundario:hover { background: rgba(255, 255, 255, 0.14); }
+
+.rodape { color: var(--texto-2); font-size: 13px; }
+.rodape a { color: var(--indigo-claro); }
+
+:focus-visible { outline: 3px solid var(--indigo-claro); outline-offset: 3px; border-radius: 8px; }
+
+@media (max-width: 420px) {
+    .cartao { padding: 32px 20px; }
+    .acoes .btn { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+}
