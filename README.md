@@ -89,7 +89,7 @@ O SVI funciona como app de duas formas, a partir do mesmo site em `public/`:
 
 Nos dois casos:
 
-- **Ingressos sem internet**: a última lista carregada fica salva no aparelho. Na fila do evento, sem sinal, o QR Code abre na hora (com o aviso "Sem internet"). Sair da conta apaga essa cópia.
+- **Ingressos sem internet**: a última lista carregada fica salva no aparelho. Na fila do evento, sem sinal, o QR Code abre na hora (com o aviso "Sem internet"). Sair da conta apaga essa cópia. Sem ingressos salvos, se o servidor não responder o app mostra a página 503 (que também abre sem internet).
 - **Abas no rodapé** no celular, respeitando o notch e a barra de gestos.
 - **Portaria**: a tela não apaga enquanto o leitor está aberto e a câmera é liberada quando o app vai para segundo plano.
 - **Atalhos no ícone** (toque longo no ícone do app instalado): "Meus ingressos" e "Portaria".
