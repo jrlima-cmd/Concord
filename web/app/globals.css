@@ -138,3 +138,23 @@ summary { cursor: pointer; color: var(--suave); }
   .estado { grid-column: 1 / -1; }
   .estado .botao { width: 100%; }
 }
+
+.acoes-topo { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.estreito { max-width: 640px; }
+.voltar { color: var(--suave); text-decoration: none; font-size: 0.9rem; display: inline-block; margin-bottom: 8px; }
+.bloco {
+  background: var(--cartao); border: 1px solid var(--borda); border-radius: 16px;
+  padding: 18px; margin-top: 16px;
+}
+.bloco p { margin: 6px 0; }
+.campos { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.campos label { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; font-weight: 600; }
+.campos input, .cartao input {
+  padding: 12px; border-radius: 10px; border: 1px solid var(--borda);
+  background: var(--fundo); color: var(--texto); font: inherit; font-weight: 400;
+}
+.acessos { list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.acessos li { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
+.chip.verde { background: #e3f6ea; color: var(--verde); }
+.chip.vermelho { background: #fde8e7; color: #d93025; }
+.botao.perigo { background: transparent; border-color: #d93025; color: #d93025; }

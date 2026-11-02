@@ -88,7 +88,7 @@ de Brasília). Para testar na hora: aba **Actions → Gerar vídeos → Run work
 |---|---|
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
-| `DASHBOARD_PASSWORD` | senha para entrar no painel |
+| `SESSAO_SEGREDO` | texto aleatório longo que assina as sessões (ex.: `openssl rand -hex 32`) |
 | `GITHUB_REPO` | *(opcional)* `jrlima-cmd/concord-achadinhos`, para o botão "Gerar agora" |
 | `GITHUB_TOKEN` | *(opcional)* token *fine-grained* com permissão **Actions: write** neste repositório |
 | `GITHUB_BRANCH` | *(opcional)* branch do workflow, padrão `main` |
@@ -128,9 +128,15 @@ vermelha e o GitHub manda um e-mail de aviso. Dá para rodar na hora em
 
 ## Segurança
 
-- **Login:** senha comparada em tempo constante; 5 erros por endereço em 15 min
-  (ou 50 no total) bloqueiam novas tentativas. A sessão é um cookie assinado
-  (HMAC) que vale 30 dias; trocar `DASHBOARD_PASSWORD` derruba todas as sessões.
+- **Conta única de administrador:** login com e-mail e senha. A conta fica na
+  tabela `admin_conta`, que só aceita uma linha; não existe tela de cadastro.
+  A senha é guardada só como hash scrypt.
+- **Página "Minha conta"** (`/admin`): trocar senha, ver os últimos acessos
+  (data, resultado e tipo de aparelho, **sem IP**) e desconectar todos os aparelhos.
+- **Login:** 5 erros por endereço em 15 min (ou 50 no total) bloqueiam novas
+  tentativas; do endereço só fica guardado um hash, nunca o IP. A sessão é um
+  cookie assinado com `SESSAO_SEGREDO` que vale 30 dias; trocar a senha ou
+  desconectar todos derruba as sessões abertas.
 - **Painel:** todas as páginas e ações do servidor exigem sessão válida; os dados
   enviados são validados.
 - **Cabeçalhos:** HSTS, `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'`,

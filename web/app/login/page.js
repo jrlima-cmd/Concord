@@ -9,8 +9,9 @@ export default function Login() {
     <main className="login">
       <form action={acao} className="cartao">
         <h1>Concord</h1>
-        <p className="sub">Seus achadinhos automáticos</p>
-        <input name="senha" type="password" placeholder="Senha do painel" autoFocus required />
+        <p className="sub">Área do administrador</p>
+        <input name="email" type="email" placeholder="E-mail" autoComplete="username" autoFocus required />
+        <input name="senha" type="password" placeholder="Senha" autoComplete="current-password" required />
         <button className="botao primario" disabled={enviando}>
           {enviando ? "Entrando…" : "Entrar"}
         </button>

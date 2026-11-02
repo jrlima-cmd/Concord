@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { COOKIE, tokenValido } from "@/lib/auth";
+import { COOKIE, sessaoValida } from "@/lib/auth";
 
 export async function proxy(request) {
-  if (await tokenValido(request.cookies.get(COOKIE)?.value)) return NextResponse.next();
+  if (await sessaoValida(request.cookies.get(COOKIE)?.value)) return NextResponse.next();
   return NextResponse.redirect(new URL("/login", request.url));
 }
 

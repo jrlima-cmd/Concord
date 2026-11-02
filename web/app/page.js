@@ -55,9 +55,12 @@ export default async function Painel({ searchParams }) {
           <h1>Concord</h1>
           <p className="sub">4 achadinhos novos por dia, prontos para postar</p>
         </div>
-        <form action={sair}>
-          <button className="botao fantasma">Sair</button>
-        </form>
+        <div className="acoes-topo">
+          <Link href="/admin" className="botao fantasma">Minha conta</Link>
+          <form action={sair}>
+            <button className="botao fantasma">Sair</button>
+          </form>
+        </div>
       </header>
 
       <BotaoGerar />

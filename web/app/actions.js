@@ -3,12 +3,31 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { COOKIE, VALIDADE_SEG, criarToken, senhaCorreta, tokenValido } from "@/lib/auth";
+import {
+  COOKIE,
+  VALIDADE_SEG,
+  buscarConta,
+  conferirSenha,
+  criarToken,
+  gerarHash,
+  mesmoEmail,
+  sessaoValida,
+} from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
 async function exigirLogin() {
   const jar = await cookies();
-  if (!(await tokenValido(jar.get(COOKIE)?.value))) redirect("/login");
+  if (!(await sessaoValida(jar.get(COOKIE)?.value))) redirect("/login");
+}
+
+async function gravarSessao(versao) {
+  (await cookies()).set(COOKIE, criarToken(versao), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: VALIDADE_SEG,
+    path: "/",
+  });
 }
 
 // Contra quem tenta adivinhar a senha: até 5 erros por endereço a cada 15 min,
@@ -25,6 +44,23 @@ async function idDoVisitante() {
   return Buffer.from(hash).toString("hex").slice(0, 32);
 }
 
+// Tipo de aparelho para o histórico de acessos (sem IP nem localização).
+async function dispositivo() {
+  const ua = (await headers()).get("user-agent") || "";
+  const tipo = /iphone|ipad/i.test(ua)
+    ? "iPhone/iPad"
+    : /android/i.test(ua)
+      ? "Android"
+      : /windows/i.test(ua)
+        ? "Computador Windows"
+        : /mac os/i.test(ua)
+          ? "Mac"
+          : /linux/i.test(ua)
+            ? "Computador Linux"
+            : "Outro";
+  return /; wv\)/.test(ua) ? `${tipo} (app Concord)` : tipo;
+}
+
 async function tentativasRecentes(db, ip) {
   const desde = new Date(Date.now() - JANELA_MS).toISOString();
   const contar = () =>
@@ -35,6 +71,7 @@ async function tentativasRecentes(db, ip) {
 }
 
 export async function entrar(_estado, form) {
+  const email = String(form.get("email") || "").slice(0, 200);
   const senha = String(form.get("senha") || "").slice(0, 200);
   const db = supabase();
   const ip = await idDoVisitante();
@@ -45,26 +82,71 @@ export async function entrar(_estado, form) {
     return { erro: "Muitas tentativas erradas. Espere 15 minutos e tente de novo." };
   }
 
-  if (!(await senhaCorreta(senha))) {
-    await db.from("login_tentativas").insert({ ip });
-    // Limpa registros antigos para a tabela não crescer à toa
-    await db.from("login_tentativas").delete().lt("criado_em", new Date(Date.now() - 864e5).toISOString());
+  let conta;
+  try {
+    conta = await buscarConta();
+  } catch {
+    return { erro: "Não foi possível verificar o acesso agora. Tente de novo em instantes." };
+  }
+  // A senha é sempre conferida (mesmo com e-mail errado) para o tempo de
+  // resposta não revelar se o e-mail existe.
+  const emailOk = Boolean(conta) && mesmoEmail(email, conta.email);
+  const senhaOk = await conferirSenha(senha, emailOk ? conta.senha_hash : undefined);
+
+  if (!emailOk || !senhaOk) {
+    await Promise.all([
+      db.from("login_tentativas").insert({ ip }),
+      db.from("acessos").insert({ sucesso: false, dispositivo: await dispositivo() }),
+    ]);
+    // Limpa registros antigos para as tabelas não crescerem à toa
+    await Promise.all([
+      db.from("login_tentativas").delete().lt("criado_em", new Date(Date.now() - 864e5).toISOString()),
+      db.from("acessos").delete().lt("criado_em", new Date(Date.now() - 90 * 864e5).toISOString()),
+    ]);
     await new Promise((r) => setTimeout(r, 800));
-    return { erro: "Senha incorreta." };
+    return { erro: "E-mail ou senha incorretos." };
   }
 
-  const jar = await cookies();
-  jar.set(COOKIE, await criarToken(), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: VALIDADE_SEG,
-    path: "/",
-  });
+  await db.from("acessos").insert({ sucesso: true, dispositivo: await dispositivo() });
+  await gravarSessao(conta.sessao_versao);
   redirect("/");
 }
 
 export async function sair() {
+  (await cookies()).delete(COOKIE);
+  redirect("/login");
+}
+
+export async function alterarSenha(_estado, form) {
+  await exigirLogin();
+  const atual = String(form.get("atual") || "");
+  const nova = String(form.get("nova") || "");
+  const confirmar = String(form.get("confirmar") || "");
+
+  const conta = await buscarConta();
+  if (!(await conferirSenha(atual, conta.senha_hash))) return { erro: "A senha atual está errada." };
+  if (nova.length < 12 || nova.length > 200) return { erro: "A senha nova precisa ter pelo menos 12 caracteres." };
+  if (nova !== confirmar) return { erro: "A confirmação não é igual à senha nova." };
+  if (nova === atual) return { erro: "A senha nova precisa ser diferente da atual." };
+
+  const versao = conta.sessao_versao + 1;
+  const { error } = await supabase()
+    .from("admin_conta")
+    .update({ senha_hash: await gerarHash(nova), sessao_versao: versao, atualizado_em: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) return { erro: "Não foi possível salvar. Tente de novo." };
+  // Os outros aparelhos saem; este continua conectado.
+  await gravarSessao(versao);
+  return { ok: "Senha alterada. Os outros aparelhos foram desconectados." };
+}
+
+export async function encerrarSessoes() {
+  await exigirLogin();
+  const conta = await buscarConta();
+  await supabase()
+    .from("admin_conta")
+    .update({ sessao_versao: conta.sessao_versao + 1, atualizado_em: new Date().toISOString() })
+    .eq("id", 1);
   (await cookies()).delete(COOKIE);
   redirect("/login");
 }
