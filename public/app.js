@@ -937,6 +937,35 @@ async function init() {
     setupInstall();
     setupNativeApp();
 
+    // Configurações do evento
+    const applyConfig = () => {
+        $('event-name').textContent = state.config.eventName;
+        $('quantidade').max = state.config.maxTicketsPerOrder;
+        updateTotal();
+    };
+    const loadConfig = api('/api/config').then((config) => {
+        state.config = config;
+        storageSet(localStorage, STORAGE_CONFIG, config);
+        applyConfig();
+    });
+    if (readTicketsCache()) {
+        // Com ingressos salvos no aparelho o app funciona sem o servidor: usa a última cópia
+        // das configurações e atualiza quando a API responder
+        state.config = storageGet(localStorage, STORAGE_CONFIG, state.config);
+        loadConfig.catch(() => {});
+    } else {
+        try {
+            await loadConfig;
+        } catch {
+            // Sem o servidor o app não funciona: mostra a página 503, que tenta de novo voltando para cá.
+            // No app Android o endereço precisa do .html (sem ele o servidor interno abre o próprio app).
+            const errorPage = isNativeApp ? '/503.html' : '/503';
+            window.location.replace(`${errorPage}?de=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+            return;
+        }
+    }
+    applyConfig();
+
     // O supabase-js renova o token sozinho; mantemos a cópia usada nas chamadas da API
     if (supabaseClient) {
         supabaseClient.auth.onAuthStateChange((_event, session) => { state.session = session; });
@@ -947,26 +976,6 @@ async function init() {
             : await check.then(() => true);
         if (!settled) state.offline = true;
     }
-
-    // Configurações do evento: usa a última cópia na hora e atualiza quando a API responder
-    const applyConfig = () => {
-        $('event-name').textContent = state.config.eventName;
-        $('quantidade').max = state.config.maxTicketsPerOrder;
-        updateTotal();
-    };
-    const savedConfig = storageGet(localStorage, STORAGE_CONFIG, null);
-    const loadConfig = api('/api/config').then((config) => {
-        state.config = config;
-        storageSet(localStorage, STORAGE_CONFIG, config);
-        applyConfig();
-    });
-    if (savedConfig) {
-        state.config = savedConfig;
-        loadConfig.catch(() => {});
-    } else {
-        await loadConfig.catch(() => toast('Não foi possível carregar as configurações do evento.', 'error'));
-    }
-    applyConfig();
 
     if (await handleCheckoutReturn()) return;
 

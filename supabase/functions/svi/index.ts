@@ -7,7 +7,8 @@ const env = (name: string, fallback = '') => Deno.env.get(name) ?? fallback;
 
 const config = {
     stripeSecretKey: env('STRIPE_SECRET_KEY'),
-    stripeWebhookSecret: env('STRIPE_WEBHOOK_SECRET'),
+    // trim: chaves coladas pelo celular costumam vir com espaço ou quebra de linha no fim
+    stripeWebhookSecret: env('STRIPE_WEBHOOK_SECRET').trim(),
     stripePaymentMethods: env('STRIPE_PAYMENT_METHODS').split(',').map((m) => m.trim()).filter(Boolean),
     siteUrl: env('SITE_URL').replace(/\/$/, ''),
     eventName: env('EVENT_NAME', 'Ingresso SVI'),
@@ -38,8 +39,6 @@ const LOGIN_WINDOW_MINUTES = 5;
 // Checkout da Stripe expira em 60 min; limita pedidos abertos por pessoa nesse intervalo
 const MAX_PENDING_ORDERS = 5;
 const PENDING_WINDOW_MINUTES = 60;
-// Pedidos pendentes mais antigos já expiraram na Stripe; não vale consultar de novo
-const REFRESH_PENDING_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -335,10 +334,12 @@ async function handleCheckout(req: Request): Promise<Response> {
     }
 }
 
-/** Se o pedido ainda está pendente, consulta a Stripe diretamente (fallback do webhook). */
+/**
+ * Se o pedido ainda está pendente, consulta a Stripe diretamente (fallback do webhook).
+ * Sem limite de idade: uma sessão já encerrada resolve o pedido (pago ou expirado) na primeira consulta.
+ */
 async function refreshPending(order: Order): Promise<Order> {
     if (order.status !== 'PENDING' || !order.stripe_session_id) return order;
-    if (Date.now() - new Date(order.created_at).getTime() > REFRESH_PENDING_MAX_AGE_MS) return order;
     try {
         const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
         return (await syncFromSession(session)) ?? order;
@@ -427,6 +428,16 @@ async function handleValidate(req: Request): Promise<Response> {
     return json(payload);
 }
 
+/**
+ * Sinal de vida: faz uma consulta mínima ao banco (sem devolver dados) para que o Supabase
+ * não pause o projeto por inatividade. Chamado uma vez por dia pelo cron da Vercel.
+ */
+async function handleHealth(): Promise<Response> {
+    const { error } = await db.from('tickets').select('id', { head: true, count: 'exact' }).limit(1);
+    if (error) throw error;
+    return json({ ok: true, at: new Date().toISOString() });
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -441,6 +452,7 @@ Deno.serve(async (req) => {
             return json({ error: 'Servidor ainda não configurado: defina STRIPE_SECRET_KEY, STAFF_PASSWORD e SESSION_SECRET.' }, 503);
         }
 
+        if (req.method === 'GET' && path === '/api/health') return await handleHealth();
         if (req.method === 'POST' && path === '/api/webhook') return await handleWebhook(req);
         if (req.method === 'GET' && path === '/api/config') {
             return json({

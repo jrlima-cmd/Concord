@@ -11,7 +11,8 @@
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
     "stripe:listen": "stripe listen --forward-to localhost:3000/api/webhook",
-    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "paginas-erro": "node scripts/paginas-erro.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
