@@ -118,6 +118,14 @@ preciso uma chave própria de loja.
 
 Se o endereço do painel mudar, troque `server.url` em `mobile/capacitor.config.json`.
 
+## Verificação diária
+
+Todo dia às 07:23 (Brasília) o workflow **Verificar site** consulta o banco de dados
+e abre o painel. A consulta conta como uso, então o Supabase gratuito não pausa o
+projeto por inatividade. Se o banco ou o site não responderem, a execução fica
+vermelha e o GitHub manda um e-mail de aviso. Dá para rodar na hora em
+**Actions → Verificar site → Run workflow**.
+
 ## Rodar no computador
 
 ```bash

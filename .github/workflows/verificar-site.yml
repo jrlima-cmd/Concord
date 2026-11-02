@@ -1,0 +1,49 @@
+name: Verificar site
+
+# Todo dia de manhã: consulta o banco (o que conta como uso e impede o Supabase
+# gratuito de pausar o projeto por inatividade) e confere se o painel está no ar.
+# Se algo falhar, o GitHub manda um e-mail de aviso para o dono do repositório.
+on:
+  schedule:
+    - cron: "23 10 * * *" # 07:23 no horário de Brasília
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://concord-sable.vercel.app' }}
+    steps:
+      - name: Banco de dados responde
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          consulta() {
+            curl -sS --retry 3 --retry-delay 10 --retry-all-errors \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Prefer: count=exact" -H "Range: 0-0" \
+              -o /dev/null -D - "$SUPABASE_URL/rest/v1/$1" | tr -d '\r'
+          }
+          resp=$(consulta "videos?select=id&status=eq.pendente")
+          echo "$resp" | head -1
+          echo "$resp" | head -1 | grep -qE ' 20[06]( |$)' || { echo "::error::O banco de dados não respondeu."; exit 1; }
+          pendentes=$(echo "$resp" | grep -i '^content-range:' | sed 's|.*/||')
+          ranking=$(consulta "em_alta?select=item_id" | grep -i '^content-range:' | sed 's|.*/||')
+          {
+            echo "### Banco de dados ✅"
+            echo "- Vídeos esperando para postar: **${pendentes:-0}**"
+            echo "- Produtos no ranking Em alta: **${ranking:-0}**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Site no ar
+        run: |
+          code=$(curl -sS -L --retry 3 --retry-delay 10 --retry-all-errors \
+            -o /dev/null -w '%{http_code}' "$SITE_URL/login")
+          echo "Site respondeu $code"
+          [ "$code" = "200" ] || { echo "::error::O site $SITE_URL respondeu $code."; exit 1; }
+          echo "### Site no ar ✅ ($SITE_URL)" >> "$GITHUB_STEP_SUMMARY"
