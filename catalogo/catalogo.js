@@ -11,6 +11,7 @@ const ICONES = {
     loja: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
     grafico: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     sistema: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>',
+    video: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10.5l6-3.5v10l-6-3.5z"/>',
 };
 
 function icone(nome) {

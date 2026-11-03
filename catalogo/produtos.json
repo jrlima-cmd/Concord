@@ -26,5 +26,30 @@
       "demonstracao": "https://svi-ingressos.vercel.app"
     },
     "icone": "ingresso"
+  },
+  {
+    "id": "achadinhos",
+    "nome": "Concord Achadinhos",
+    "titulo": "Vídeos de achadinhos da Shopee no automático",
+    "categoria": "Marketing de afiliados",
+    "status": "disponivel",
+    "resumo": "Um robô escolhe produtos em alta na Shopee e monta 4 vídeos prontos por dia. Você assiste no celular e posta com um toque.",
+    "descricao": "Quatro vezes por dia, o Concord Achadinhos escolhe um produto em alta na Shopee, pelas vendas, nota e comissão, e monta um vídeo vertical de 10 segundos no estilo comercial, com cenário nas cores do tema e trilha instrumental original, composta pelo próprio robô. O vídeo chega no seu painel com a descrição, as hashtags e o seu link de afiliado prontos para copiar. A Shopee não permite publicar por robô, então a postagem é sua: um toque em \"Compartilhar na Shopee\" e pronto, sem risco para a sua conta de afiliado.",
+    "recursos": [
+      "4 vídeos verticais (1080×1920) gerados por dia, no automático",
+      "Escolha dos produtos pelas vendas, nota e comissão",
+      "Tema detectado pelo produto: Natal, cozinha, beleza, casa, tecnologia, pet e outros",
+      "Trilha instrumental original em cada vídeo, sem risco de direitos autorais",
+      "Descrição com hashtags e link de afiliado prontos para copiar",
+      "Aba \"Em alta\" com o ranking de até 30 produtos e o botão \"Gerar vídeo deste\"",
+      "Prompt pronto para criar uma versão do vídeo com IA",
+      "Painel no celular e app Android, com login protegido"
+    ],
+    "publico": "Afiliados da Shopee que querem postar todo dia sem passar horas editando vídeo. Para usar produtos reais e o seu link de afiliado, é preciso ter acesso à API de afiliados da Shopee (Open API).",
+    "preco": {
+      "observacao": "Cada assinante recebe o próprio painel e o próprio robô. Sem fidelidade."
+    },
+    "links": {},
+    "icone": "video"
   }
 ]

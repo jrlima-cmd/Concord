@@ -33,9 +33,16 @@ Copie o bloco abaixo para dentro da lista em `produtos.json` (separado do anteri
 | `preco.taxa` | Texto extra ao lado do preço, por exemplo `+ 10% por ingresso vendido` |
 | `links.assinar` | Link de pagamento da Stripe (assinatura mensal). Com ele, aparece o botão "Assinar agora"; sem ele, o botão abre um e-mail para a Ghost tech |
 | `links.demonstracao` | Opcional. Mostra o botão "Demonstração" |
-| `icone` | `ingresso`, `agenda`, `loja`, `grafico` ou `sistema` (padrão). Novos ícones ficam em `catalogo.js` |
+| `icone` | `ingresso`, `agenda`, `loja`, `grafico`, `video` ou `sistema` (padrão). Novos ícones ficam em `catalogo.js` |
 
 Os sistemas disponíveis aparecem primeiro; dentro de cada grupo vale a ordem do arquivo.
+
+## Sistemas no catálogo
+
+| Sistema | `id` | Preço | Código |
+|---|---|---|---|
+| SVI: venda e validação de ingressos | `svi` | R$ 49,90/mês + 10% por ingresso | este repositório (`public/`, `supabase/`) |
+| Concord Achadinhos: vídeos de achadinhos da Shopee | `achadinhos` | Sob consulta (sem link da Stripe ainda) | `concord-achadinhos` (robô, painel e app Android) |
 
 ## Pagamento (Stripe)
 
