@@ -860,9 +860,10 @@ function setupNativeApp() {
     if (!isNativeApp) return;
     document.documentElement.classList.add('native-app');
 
-    // Botão "voltar" do Android: fecha o que estiver aberto, volta para a primeira aba e só então minimiza
+    // Botão "voltar" do Android: fecha o que estiver aberto, volta para a primeira aba e, por fim,
+    // volta para o catálogo Ghost tech (de onde o SVI foi aberto) ou minimiza o app
     const App = window.Capacitor.Plugins?.App;
-    App?.addListener('backButton', () => {
+    App?.addListener('backButton', ({ canGoBack } = {}) => {
         if (!$('result-overlay').classList.contains('hidden')) return hideResult();
         if ($('checkout-modal').classList.contains('active')) return closeCheckoutModal();
         if (state.role) {
@@ -871,6 +872,7 @@ function setupNativeApp() {
         } else if (!$('visitante-form').classList.contains('hidden') || !$('seguranca-form').classList.contains('hidden')) {
             return resetLoginForms();
         }
+        if (canGoBack) return window.history.back();
         App.minimizeApp();
     });
 }
@@ -957,10 +959,8 @@ async function init() {
         try {
             await loadConfig;
         } catch {
-            // Sem o servidor o app não funciona: mostra a página 503, que tenta de novo voltando para cá.
-            // No app Android o endereço precisa do .html (sem ele o servidor interno abre o próprio app).
-            const errorPage = isNativeApp ? '/503.html' : '/503';
-            window.location.replace(`${errorPage}?de=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+            // Sem o servidor o app não funciona: mostra a página 503, que tenta de novo voltando para cá
+            window.location.replace(`/503?de=${encodeURIComponent(window.location.pathname + window.location.search)}`);
             return;
         }
     }

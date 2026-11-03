@@ -110,9 +110,11 @@ Basta publicar `public/` como sempre (Vercel). `manifest.webmanifest` descreve o
 
 ### App Android
 
-Projeto [Capacitor](https://capacitorjs.com) em `mobile/`, que empacota o site de `public/` dentro do app.
+Projeto [Capacitor](https://capacitorjs.com) em `mobile/`, que empacota dois sites num app só: o **catálogo Ghost tech** (`catalogo/`) e o **SVI** (`public/`). O app abre no catálogo; os botões "Demonstração" e "Abrir demonstração" do SVI levam ao SVI dentro do app, e o botão voltar do Android traz de volta ao catálogo.
 
-**Baixar o APK pronto:** a cada mudança em `public/` ou `mobile/`, o GitHub Actions (workflow "App Android") gera o APK de teste. Abra a execução em **Actions › App Android**, baixe `svi-android-teste` em *Artifacts*, descompacte e instale o `app-debug.apk` no celular (o Android pede para permitir a instalação de fontes desconhecidas).
+Cada site roda dentro do app no mesmo endereço que tem na internet, `ghosttech.vercel.app` e `svi-ingressos.vercel.app`, mas os arquivos vêm do próprio app (funcionam sem internet). Quem serve o catálogo é a `MainActivity.java`; o SVI fica com o Capacitor. Endereços sem ".html" (`/termos`, `/503`, `/suporte`) abrem a página certa, como na Vercel.
+
+**Baixar o APK pronto:** a cada mudança em `public/`, `catalogo/` ou `mobile/`, o GitHub Actions (workflow "App Android") gera o APK de teste. Abra a execução em **Actions › App Android**, baixe `svi-android-teste` em *Artifacts*, descompacte e instale o `app-debug.apk` no celular (o Android pede para permitir a instalação de fontes desconhecidas).
 
 O APK de teste é sempre assinado com a mesma chave (`mobile/android/app/debug.keystore`), então as versões novas instalam por cima das antigas sem perder o login. Essa chave é só para testes: quem tiver acesso ao repositório consegue assinar um APK com ela. A versão da Google Play usa a chave própria, guardada nos segredos do GitHub.
 
@@ -121,13 +123,17 @@ O APK de teste é sempre assinado com a mesma chave (`mobile/android/app/debug.k
 ```bash
 cd mobile
 npm install
-npm run sync     # copia public/ para o projeto Android
+npm run sync     # copia public/ e catalogo/ para o projeto Android
 npm run open     # abre no Android Studio (ou: npm run apk)
 ```
 
-Rode `npm run sync` sempre que mudar algo em `public/`.
+Rode `npm run sync` sempre que mudar algo em `public/` ou `catalogo/`.
 
 **Como o pagamento volta para o app:** o app serve o site com o endereço `https://svi-ingressos.vercel.app` (`server.hostname` em `mobile/capacitor.config.json`). Assim o Checkout da Stripe abre dentro do app e, ao terminar, volta para esse endereço, que o próprio app atende: os ingressos aparecem sem passar pelo navegador. Por isso **`server.hostname` precisa ser o mesmo domínio para onde a Stripe redireciona** (o `SITE_URL` da função, se definido). Se o site mudar de domínio, atualize os dois.
+
+O mesmo vale para a assinatura no catálogo: o link de pagamento da Stripe volta para `https://ghosttech.vercel.app/obrigado`, que o app também atende. Se o catálogo mudar de domínio, troque `CATALOGO_HOST` em `MainActivity.java`, o endereço em `allowNavigation` (`capacitor.config.json`) e o redirecionamento do link de pagamento na Stripe.
+
+**Testes do app:** o workflow também abre o app num emulador Android e confere que ele começa no catálogo, leva ao SVI, volta, e abre as páginas sem ".html" (`mobile/android/app/src/androidTest/`).
 
 **Publicar na Google Play:**
 

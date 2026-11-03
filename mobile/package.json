@@ -2,11 +2,11 @@
   "name": "svi-mobile",
   "version": "1.0.0",
   "private": true,
-  "description": "App do SVI para Android (Capacitor) usando o site em ../public",
+  "description": "App Android do SVI com o catálogo Ghost tech (Capacitor), usando os sites em ../public e ../catalogo",
   "scripts": {
-    "sync": "cap sync android",
+    "sync": "cap sync android && node scripts/copiar-catalogo.js",
     "open": "cap open android",
-    "apk": "cap sync android && cd android && ./gradlew assembleDebug"
+    "apk": "npm run sync && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.1",

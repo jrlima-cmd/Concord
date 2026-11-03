@@ -5,15 +5,18 @@
   "server": {
     "androidScheme": "https",
     "hostname": "svi-ingressos.vercel.app",
-    "allowNavigation": ["checkout.stripe.com", "*.stripe.com"]
+    "allowNavigation": [
+      "ghosttech.vercel.app",
+      "checkout.stripe.com",
+      "*.stripe.com"
+    ]
   },
   "android": {
     "backgroundColor": "#0b0f17"
   },
   "plugins": {
     "SystemBars": {
-      "style": "DARK",
-      "initialViewportFitValueHint": "cover"
+      "style": "DARK"
     }
   }
 }

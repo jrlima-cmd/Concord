@@ -1,16 +1,18 @@
 name: App Android
 
-# Gera o app Android do SVI a partir do site em public/.
+# Gera o app Android (catálogo Ghost tech + SVI) a partir dos sites em catalogo/ e public/.
 # O APK de teste fica em "Artifacts" na página de cada execução, pronto para instalar no celular.
 on:
   push:
     paths:
       - 'public/**'
+      - 'catalogo/**'
       - 'mobile/**'
       - '.github/workflows/android.yml'
   pull_request:
     paths:
       - 'public/**'
+      - 'catalogo/**'
       - 'mobile/**'
       - '.github/workflows/android.yml'
   workflow_dispatch:
@@ -47,12 +49,12 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Copiar o site para o projeto Android
-        run: npx cap sync android
+      - name: Copiar os sites para o projeto Android
+        run: npm run sync
 
-      - name: Compilar APK de teste
+      - name: Testar e compilar APK de teste
         working-directory: mobile/android
-        run: ./gradlew assembleDebug
+        run: ./gradlew testDebugUnitTest assembleDebug
 
       # A impressão digital deve ser sempre a mesma (chave fixa em mobile/android/app/debug.keystore)
       - name: Conferir assinatura do APK de teste
@@ -91,3 +93,47 @@ jobs:
             mobile/android/app/build/outputs/bundle/release/app-release.aab
             mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+  emulador:
+    name: Testar no emulador Android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Copiar os sites para o projeto Android
+        run: npm run sync
+
+      - name: Habilitar aceleração do emulador (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Abre o app: começa no catálogo, leva ao SVI pela demonstração, volta, e abre as páginas sem ".html"
+      - name: Rodar o app no emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          working-directory: mobile/android
+          script: ./gradlew connectedDebugAndroidTest

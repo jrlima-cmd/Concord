@@ -13,6 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Cor atrás da barra de status e da barra de gestos nas páginas do catálogo -->
+        <item name="android:windowBackground">@color/splash_background</item>
     </style>
 
 
