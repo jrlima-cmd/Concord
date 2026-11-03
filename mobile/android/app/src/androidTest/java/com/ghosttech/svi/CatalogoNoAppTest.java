@@ -24,12 +24,14 @@ public class CatalogoNoAppTest {
         esperar("location.host === 'ghosttech.vercel.app' && document.querySelectorAll('#grade .card').length > 0", "catálogo com os sistemas");
         assertEquals("false", js("document.querySelector('meta[name=viewport]').content.includes('cover')"));
 
+        // Toca no link logo, sem esperar o catálogo terminar de carregar (as fontes vêm da internet)
         js("document.querySelector('a[href^=\"https://svi-ingressos.vercel.app\"]').click()");
         // Sem acesso à API do SVI (Supabase) a página certa é a 503 do próprio SVI
         esperar(
-            "location.host === 'svi-ingressos.vercel.app' && (document.getElementById('login-screen') !== null || document.title.includes('Serviço indisponível'))",
+            "location.host === 'svi-ingressos.vercel.app' && (document.documentElement.classList.contains('native-app') || document.title.includes('Serviço indisponível'))",
             "SVI aberto pelo link de demonstração"
         );
+        Thread.sleep(500); // O SVI registra o botão voltar no Android
 
         voltar();
         esperar("location.host === 'ghosttech.vercel.app'", "voltar do SVI para o catálogo");

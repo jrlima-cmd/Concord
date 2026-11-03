@@ -45,9 +45,11 @@ public class MainActivity extends BridgeActivity {
             }
 
             @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                // Tira do histórico a página do SVI que o Capacitor abre antes do catálogo
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                super.doUpdateVisitedHistory(view, url, isReload);
+                // Tira do histórico a página do SVI que o Capacitor abre antes do catálogo. Precisa ser
+                // aqui, quando o catálogo entra no histórico: no fim do carregamento a pessoa já pode
+                // ter tocado num link, e o histórico limpo seria o do SVI (o voltar não traria ao catálogo).
                 if (!historicoLimpo && url != null && url.startsWith(CATALOGO_INICIO)) {
                     historicoLimpo = true;
                     view.clearHistory();
