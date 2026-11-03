@@ -47,9 +47,13 @@
     ],
     "publico": "Afiliados da Shopee que querem postar todo dia sem passar horas editando vídeo. Para usar produtos reais e o seu link de afiliado, é preciso ter acesso à API de afiliados da Shopee (Open API).",
     "preco": {
+      "mensalidade": 39999,
+      "taxa": "",
       "observacao": "Cada assinante recebe o próprio painel e o próprio robô. Sem fidelidade."
     },
-    "links": {},
+    "links": {
+      "assinar": "https://buy.stripe.com/test_3cI6oJc5h6qz9Jw19A3VC01"
+    },
     "icone": "video"
   }
 ]

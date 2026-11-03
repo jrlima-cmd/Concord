@@ -42,7 +42,7 @@ Os sistemas disponíveis aparecem primeiro; dentro de cada grupo vale a ordem do
 | Sistema | `id` | Preço | Código |
 |---|---|---|---|
 | SVI: venda e validação de ingressos | `svi` | R$ 49,90/mês + 10% por ingresso | este repositório (`public/`, `supabase/`) |
-| Concord Achadinhos: vídeos de achadinhos da Shopee | `achadinhos` | Sob consulta (sem link da Stripe ainda) | `concord-achadinhos` (robô, painel e app Android) |
+| Concord Achadinhos: vídeos de achadinhos da Shopee | `achadinhos` | R$ 399,99/mês | `concord-achadinhos` (robô, painel e app Android) |
 
 ## Pagamento (Stripe)
 
