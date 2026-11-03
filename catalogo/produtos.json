@@ -26,5 +26,29 @@
       "demonstracao": "https://svi-ingressos.vercel.app"
     },
     "icone": "ingresso"
+  },
+  {
+    "id": "concord",
+    "nome": "Concord",
+    "titulo": "Vídeos de achadinhos da Shopee no automático",
+    "categoria": "Marketing",
+    "status": "disponivel",
+    "resumo": "Todo dia um robô escolhe produtos em alta na Shopee e monta vídeos prontos para você postar com o seu link de afiliado.",
+    "descricao": "O Concord trabalha por você 4 vezes por dia: escolhe um produto em alta na Shopee, monta um vídeo vertical de 10 segundos estilo comercial, com cenário e trilha sonora no tema do produto, e entrega no seu painel com a descrição e o link de afiliado prontos. Você assiste e posta na Shopee com um toque, direto do celular.",
+    "recursos": [
+      "Vídeo vertical (9:16) gerado 4 vezes por dia",
+      "Produtos escolhidos pelas vendas, pela nota e pela comissão",
+      "Cenário e trilha sonora originais no tema de cada produto, sem risco de direitos autorais",
+      "Descrição com hashtags e link de afiliado prontos para copiar",
+      "Painel no celular para assistir, baixar e compartilhar",
+      "Ranking dos produtos em alta, com botão para gerar o vídeo na hora",
+      "Prompt pronto para criar uma versão do vídeo com IA"
+    ],
+    "publico": "Afiliados da Shopee que querem postar vídeos todos os dias sem passar horas editando.",
+    "preco": {
+      "observacao": "Requer cadastro no Programa de Afiliados da Shopee."
+    },
+    "links": {},
+    "icone": "loja"
   }
 ]
