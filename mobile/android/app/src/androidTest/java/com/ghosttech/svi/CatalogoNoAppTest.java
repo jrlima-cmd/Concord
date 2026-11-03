@@ -3,8 +3,12 @@ package com.ghosttech.svi;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import android.app.Instrumentation;
+import android.os.SystemClock;
+import android.view.MotionEvent;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,7 +29,7 @@ public class CatalogoNoAppTest {
         assertEquals("false", js("document.querySelector('meta[name=viewport]').content.includes('cover')"));
 
         // Toca no link logo, sem esperar o catálogo terminar de carregar (as fontes vêm da internet)
-        js("document.querySelector('a[href^=\"https://svi-ingressos.vercel.app\"]').click()");
+        tocar("document.querySelector('a[href^=\"https://svi-ingressos.vercel.app\"]')");
         // Sem acesso à API do SVI (Supabase) a página certa é a 503 do próprio SVI
         esperar(
             "location.host === 'svi-ingressos.vercel.app' && (document.documentElement.classList.contains('native-app') || document.title.includes('Serviço indisponível'))",
@@ -52,6 +56,26 @@ public class CatalogoNoAppTest {
 
         js("location.href = '/503'");
         esperar("document.title.includes('Serviço indisponível')", "503 do SVI");
+    }
+
+    /**
+     * Toque de verdade na tela, no centro do elemento. Um clique por JavaScript não serve: o Chrome
+     * pula no "voltar" a página que mudou de endereço sem toque do usuário.
+     */
+    private void tocar(String elemento) throws Exception {
+        String posicao = js("(() => { const e = " + elemento + "; e.scrollIntoView({ block: 'center', behavior: 'instant' });"
+            + " const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, devicePixelRatio].join(','); })()");
+        String[] partes = posicao.replace("\"", "").split(",");
+        float escala = Float.parseFloat(partes[2]);
+        int[] origem = new int[2];
+        regra.getScenario().onActivity((activity) -> activity.getBridge().getWebView().getLocationOnScreen(origem));
+        float x = origem[0] + Float.parseFloat(partes[0]) * escala;
+        float y = origem[1] + Float.parseFloat(partes[1]) * escala;
+
+        Instrumentation instrumentacao = InstrumentationRegistry.getInstrumentation();
+        long inicio = SystemClock.uptimeMillis();
+        instrumentacao.sendPointerSync(MotionEvent.obtain(inicio, inicio, MotionEvent.ACTION_DOWN, x, y, 0));
+        instrumentacao.sendPointerSync(MotionEvent.obtain(inicio, inicio + 60, MotionEvent.ACTION_UP, x, y, 0));
     }
 
     private void voltar() {
