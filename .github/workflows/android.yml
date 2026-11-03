@@ -136,4 +136,5 @@ jobs:
           arch: x86_64
           target: google_apis
           working-directory: mobile/android
-          script: ./gradlew connectedDebugAndroidTest
+          # Só os testes do app; os módulos do Capacitor não têm testes próprios
+          script: ./gradlew :app:connectedDebugAndroidTest
